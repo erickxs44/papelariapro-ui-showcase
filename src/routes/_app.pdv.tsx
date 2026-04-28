@@ -104,6 +104,8 @@ function Pdv() {
     if (!q) return [];
     return items.filter(i => i.name.toLowerCase().includes(q.toLowerCase()) || i.code.toLowerCase().includes(q.toLowerCase()));
   }, [items, q]);
+
+  return (
     <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1fr_380px]">
       <div className="space-y-6">
         <div>

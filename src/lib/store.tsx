@@ -21,6 +21,7 @@ type StoreContextType = {
   addExpense: (desc: string, value: number) => Promise<void>;
   expenses: { desc: string; value: number; date: Date }[];
   salesTotal: number;
+  closeCashier: () => Promise<void>;
 };
 
 export function calculateLevel(qty: number): Item["level"] {
@@ -172,8 +173,42 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const closeCashier = async () => {
+    const expensesTotal = expenses.reduce((s, e) => s + e.value, 0);
+    const lucro = salesTotal - expensesTotal;
+    
+    const html = `
+      <h1>Relatório de Fechamento de Caixa — PapelariaPro</h1>
+      <p><strong>Data:</strong> ${new Date().toLocaleDateString('pt-BR')}</p>
+      <hr />
+      <p><strong>Faturamento Total:</strong> R$ ${salesTotal.toFixed(2)}</p>
+      <p><strong>Despesas Totais:</strong> R$ ${expensesTotal.toFixed(2)}</p>
+      <p><strong>Lucro Real:</strong> R$ ${lucro.toFixed(2)}</p>
+      <p><strong>Xerox Realizadas:</strong> ${xeroxCount}</p>
+      <hr />
+      <p><em>Relatório gerado automaticamente pelo sistema.</em></p>
+    `;
+
+    try {
+      // Since Resend needs to run on server or with CORS enabled (it usually doesn't like browser)
+      // But we are in a dev environment and user wants it.
+      // If it fails due to CORS, we might need a server function.
+      // However, for this prototype, we'll try the direct approach.
+      const { resend } = await import("./resend");
+      await resend.emails.send({
+        from: 'onboarding@resend.dev',
+        to: 'cantinhodoacai982@gmail.com',
+        subject: `Fechamento de Caixa — ${new Date().toLocaleDateString('pt-BR')}`,
+        html: html,
+      });
+    } catch (err) {
+      console.error("Erro ao enviar e-mail:", err);
+      throw err;
+    }
+  };
+
   return (
-    <StoreContext.Provider value={{ items, addStock, checkout, xeroxCount, addExpense, expenses, salesTotal }}>
+    <StoreContext.Provider value={{ items, addStock, checkout, xeroxCount, addExpense, expenses, salesTotal, closeCashier }}>
       {children}
     </StoreContext.Provider>
   );

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, ShoppingCart, Receipt, X, Check } from "lucide-react";
+import { Plus, ShoppingCart, Receipt, X, Check, Lock, Loader2 } from "lucide-react";
 import { useStore } from "../lib/store";
 import { toast } from "sonner";
 import { useNavigate, useLocation } from "@tanstack/react-router";
@@ -17,7 +17,8 @@ export function FAB() {
   const [open, setOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   
-  const { addExpense } = useStore();
+  const { addExpense, closeCashier } = useStore();
+  const [loading, setLoading] = useState(false);
   const [desc, setDesc] = useState("");
   const [val, setVal] = useState("");
   const navigate = useNavigate();
@@ -32,6 +33,19 @@ export function FAB() {
     setDesc("");
     setVal("");
     setOpen(false);
+  };
+
+  const handleCloseCashier = async () => {
+    setLoading(true);
+    try {
+      await closeCashier();
+      toast.success("Relatório de fechamento enviado por e-mail!");
+      setOpen(false);
+    } catch (err) {
+      toast.error("Erro ao enviar relatório. Verifique o console.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const novaVenda = () => {
@@ -60,6 +74,16 @@ export function FAB() {
               <span className="text-sm font-semibold">Registrar Despesa</span>
               <div className="grid h-8 w-8 place-items-center rounded-full bg-destructive/10 text-destructive">
                 <Receipt className="h-4 w-4" />
+              </div>
+            </button>
+            <button
+              onClick={handleCloseCashier}
+              disabled={loading}
+              className="flex items-center gap-3 rounded-full bg-surface px-4 py-3 shadow-xl hover:bg-elevated border border-border/60 disabled:opacity-50"
+            >
+              <span className="text-sm font-semibold">Fechar Caixa</span>
+              <div className="grid h-8 w-8 place-items-center rounded-full bg-electric/10 text-electric">
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
               </div>
             </button>
             <button

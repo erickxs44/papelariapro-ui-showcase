@@ -23,7 +23,7 @@ function Estoque() {
   
   // States for new product
   const [newName, setNewName] = useState("");
-  const [newCat, setNewCat] = useState<Cat>("Escolar");
+  const [newCostPrice, setNewCostPrice] = useState("");
   const [newPrice, setNewPrice] = useState("");
   const [newQty, setNewQty] = useState("");
 
@@ -33,12 +33,12 @@ function Estoque() {
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newName || !newPrice || !newQty) return;
+    if (!newName || !newPrice || !newQty || !newCostPrice) return;
     const qtyNum = parseInt(newQty, 10);
     const item = {
-      code: "NOVO-" + Math.floor(Math.random() * 1000),
       name: newName,
-      cat: newCat as Exclude<Cat, "Todos" | "Serviço">,
+      cat: "Escolar",
+      costPrice: parseFloat(newCostPrice.replace(",", ".")),
       price: parseFloat(newPrice.replace(",", ".")),
       qty: qtyNum,
       level: calculateLevel(qtyNum)
@@ -46,6 +46,7 @@ function Estoque() {
     addStock(item as any);
     setIsModalOpen(false);
     setNewName("");
+    setNewCostPrice("");
     setNewPrice("");
     setNewQty("");
   };
@@ -93,21 +94,21 @@ function Estoque() {
         <table className="w-full text-sm">
           <thead className="bg-elevated/60 text-xs uppercase tracking-wider text-muted-foreground">
             <tr>
-              <th className="px-5 py-3 text-left font-semibold">Código</th>
               <th className="px-5 py-3 text-left font-semibold">Produto</th>
               <th className="px-5 py-3 text-left font-semibold">Categoria</th>
-              <th className="px-5 py-3 text-right font-semibold">Preço</th>
+              <th className="px-5 py-3 text-right font-semibold">Preço Custo</th>
+              <th className="px-5 py-3 text-right font-semibold">Preço Venda</th>
               <th className="px-5 py-3 text-right font-semibold">Qtd</th>
               <th className="px-5 py-3 text-left font-semibold">Estoque</th>
             </tr>
           </thead>
           <tbody>
             {filtered.map((i) => (
-              <tr key={i.code} className="border-t border-border/40 transition hover:bg-elevated/40">
-                <td className="px-5 py-4 font-mono text-xs text-muted-foreground">{i.code}</td>
+              <tr key={i.id || i.name} className="border-t border-border/40 transition hover:bg-elevated/40">
                 <td className="px-5 py-4 font-medium">{i.name}</td>
                 <td className="px-5 py-4 text-muted-foreground">{i.cat}</td>
-                <td className="px-5 py-4 text-right font-semibold">R$ {i.price.toFixed(2)}</td>
+                <td className="px-5 py-4 text-right text-muted-foreground">R$ {i.costPrice.toFixed(2)}</td>
+                <td className="px-5 py-4 text-right font-semibold text-electric">R$ {i.price.toFixed(2)}</td>
                 <td className="px-5 py-4 text-right">{i.qty}</td>
                 <td className="px-5 py-4">
                   <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${tone[i.level]}`}>
@@ -139,26 +140,21 @@ function Estoque() {
             <form onSubmit={handleAdd} className="space-y-4">
               <div>
                 <label className="text-sm font-semibold text-muted-foreground">Nome do Produto</label>
-                <input required value={newName} onChange={e => setNewName(e.target.value)} className="mt-1 w-full rounded-xl border border-border/60 bg-elevated px-4 py-2" placeholder="Ex: Lápis de Cor..." />
-              </div>
-              <div>
-                <label className="text-sm font-semibold text-muted-foreground">Categoria</label>
-                <select value={newCat} onChange={e => setNewCat(e.target.value as any)} className="mt-1 w-full rounded-xl border border-border/60 bg-elevated px-4 py-2">
-                  <option value="Escolar">Escolar</option>
-                  <option value="Escritório">Escritório</option>
-                  <option value="Arte">Arte</option>
-                  <option value="Informática">Informática</option>
-                </select>
+                <input required value={newName} onChange={e => setNewName(e.target.value)} className="mt-1 w-full rounded-xl border border-border/60 bg-elevated px-4 py-2 focus:ring-2 focus:ring-electric/50 outline-none" placeholder="Ex: Lápis de Cor..." />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-semibold text-muted-foreground">Preço (R$)</label>
-                  <input required value={newPrice} onChange={e => setNewPrice(e.target.value)} type="text" placeholder="0.00" className="mt-1 w-full rounded-xl border border-border/60 bg-elevated px-4 py-2" />
+                  <label className="text-sm font-semibold text-muted-foreground">Preço Custo (R$)</label>
+                  <input required value={newCostPrice} onChange={e => setNewCostPrice(e.target.value)} type="text" placeholder="0.00" className="mt-1 w-full rounded-xl border border-border/60 bg-elevated px-4 py-2 focus:ring-2 focus:ring-electric/50 outline-none" />
                 </div>
                 <div>
-                  <label className="text-sm font-semibold text-muted-foreground">Quantidade</label>
-                  <input required value={newQty} onChange={e => setNewQty(e.target.value)} type="number" placeholder="10" className="mt-1 w-full rounded-xl border border-border/60 bg-elevated px-4 py-2" />
+                  <label className="text-sm font-semibold text-muted-foreground">Preço Venda (R$)</label>
+                  <input required value={newPrice} onChange={e => setNewPrice(e.target.value)} type="text" placeholder="0.00" className="mt-1 w-full rounded-xl border border-border/60 bg-elevated px-4 py-2 focus:ring-2 focus:ring-electric/50 outline-none" />
                 </div>
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-muted-foreground">Quantidade Inicial</label>
+                <input required value={newQty} onChange={e => setNewQty(e.target.value)} type="number" placeholder="10" className="mt-1 w-full rounded-xl border border-border/60 bg-elevated px-4 py-2 focus:ring-2 focus:ring-electric/50 outline-none" />
               </div>
               <button type="submit" className="mt-2 w-full rounded-xl bg-electric py-3 text-sm font-bold text-white shadow-lg shadow-electric/20 hover:bg-electric/90">
                 Adicionar ao Estoque

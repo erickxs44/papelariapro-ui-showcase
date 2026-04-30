@@ -5,9 +5,9 @@ export type Cat = "Todos" | "Escolar" | "Escritório" | "Arte" | "Informática" 
 
 export type Item = {
   id?: string;
-  code: string;
   name: string;
   cat: Exclude<Cat, "Todos">;
+  costPrice: number;
   price: number;
   qty: number;
   level: "Cheio" | "Médio" | "Baixo" | "Indisponível";
@@ -45,9 +45,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!error && data) {
         const loadedItems: Item[] = data.map((d: any) => ({
           id: d.id,
-          code: `PROD-${d.id.toString().padStart(3, '0')}`,
           name: d.nome,
           cat: "Escolar",
+          costPrice: d.preco_custo,
           price: d.preco_venda,
           qty: d.estoque_atual,
           level: calculateLevel(d.estoque_atual)
@@ -86,7 +86,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     const { data, error } = await supabase.from('produtos').insert({
       nome: item.name,
-      preco_custo: item.price * 0.5,
+      preco_custo: item.costPrice,
       preco_venda: item.price,
       estoque_atual: item.qty,
       estoque_minimo: 5
@@ -94,7 +94,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     if (!error && data) {
       const newD = data[0];
-      setItems((prev) => prev.map(i => i.name === item.name && !i.id ? { ...i, id: newD.id, code: `PROD-${newD.id.toString().padStart(3, '0')}` } : i));
+      setItems((prev) => prev.map(i => i.name === item.name && !i.id ? { ...i, id: newD.id } : i));
     }
   };
 
@@ -127,7 +127,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       data_venda: new Date().toISOString()
     }).select();
 
-    if (!vendaError && vendaData) {
+    if (!vendaError && vendaData && vendaData.length > 0) {
       const vendaId = vendaData[0].id;
       for (const cartItem of cart) {
         if (cartItem.id) {
@@ -174,15 +174,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   const closeCashier = async () => {
-    const expensesTotal = expenses.reduce((s, e) => s + e.value, 0);
-    const lucro = salesTotal - expensesTotal;
+    // Fetch latest directly from DB to ensure accuracy even if called immediately after checkout
+    let currentSalesTotal = salesTotal;
+    let currentExpensesTotal = expenses.reduce((s, e) => s + e.value, 0);
+
+    const { data: salesData } = await supabase.from('vendas').select('valor_total');
+    if (salesData) {
+      currentSalesTotal = salesData.reduce((sum: number, v: any) => sum + v.valor_total, 0);
+      setSalesTotal(currentSalesTotal); // Optional sync
+    }
+
+    const { data: expData } = await supabase.from('despesas').select('valor');
+    if (expData) {
+      currentExpensesTotal = expData.reduce((sum: number, e: any) => sum + e.valor, 0);
+    }
+
+    const lucro = currentSalesTotal - currentExpensesTotal;
     
     const html = `
       <h1>Relatório de Fechamento de Caixa — PapelariaPro</h1>
       <p><strong>Data:</strong> ${new Date().toLocaleDateString('pt-BR')}</p>
       <hr />
-      <p><strong>Faturamento Total:</strong> R$ ${salesTotal.toFixed(2)}</p>
-      <p><strong>Despesas Totais:</strong> R$ ${expensesTotal.toFixed(2)}</p>
+      <p><strong>Faturamento Total:</strong> R$ ${currentSalesTotal.toFixed(2)}</p>
+      <p><strong>Despesas Totais:</strong> R$ ${currentExpensesTotal.toFixed(2)}</p>
       <p><strong>Lucro Real:</strong> R$ ${lucro.toFixed(2)}</p>
       <p><strong>Xerox Realizadas:</strong> ${xeroxCount}</p>
       <hr />
@@ -190,14 +204,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     `;
 
     try {
-      // Since Resend needs to run on server or with CORS enabled (it usually doesn't like browser)
-      // But we are in a dev environment and user wants it.
-      // If it fails due to CORS, we might need a server function.
-      // However, for this prototype, we'll try the direct approach.
       const { resend } = await import("./resend");
       await resend.emails.send({
         from: 'onboarding@resend.dev',
-        to: 'cantinhodoacai982@gmail.com',
+        to: 'papelaria573@gmail.com',
         subject: `Fechamento de Caixa — ${new Date().toLocaleDateString('pt-BR')}`,
         html: html,
       });

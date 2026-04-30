@@ -11,7 +11,9 @@ import {
   Trash2,
   CreditCard,
   PackageX,
-  GraduationCap
+  GraduationCap,
+  ReceiptText,
+  Lock
 } from "lucide-react";
 import { useStore } from "../lib/store";
 import { toast } from "sonner";
@@ -53,7 +55,7 @@ const listasEscolares = [
 type CartItem = { id?: string; name: string; price: number; qty: number };
 
 function Pdv() {
-  const { items, checkout, xeroxCount } = useStore();
+  const { items, checkout, xeroxCount, closeCashier } = useStore();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [q, setQ] = useState("");
 
@@ -93,17 +95,55 @@ function Pdv() {
 
   const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
 
-  const handleCheckout = () => {
+  const handleCheckout = async () => {
     if (cart.length === 0) return;
-    checkout(cart);
-    setCart([]);
-    toast.success("Venda realizada! Estoque atualizado");
+    toast.promise(
+      async () => {
+        await checkout(cart);
+        setCart([]);
+      },
+      {
+        loading: 'Salvando venda...',
+        success: 'Venda realizada com sucesso!',
+        error: 'Erro ao salvar venda.',
+      }
+    );
+  };
+
+  const handleCloseCashier = async () => {
+    toast.promise(
+      async () => {
+        if (cart.length > 0) {
+          await checkout(cart);
+          setCart([]);
+        }
+        await closeCashier();
+      },
+      {
+        loading: 'Fechando caixa e enviando e-mail...',
+        success: 'Caixa fechado! Relatório enviado.',
+        error: 'Erro ao fechar caixa.',
+      }
+    );
   };
 
   const searchResults = useMemo(() => {
     if (!q) return [];
-    return items.filter(i => i.name.toLowerCase().includes(q.toLowerCase()) || i.code.toLowerCase().includes(q.toLowerCase()));
+    return items.filter(i => i.name.toLowerCase().includes(q.toLowerCase()));
   }, [items, q]);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && searchResults.length > 0) {
+      const p = searchResults[0];
+      if (p.qty > 0) {
+        add(p.name, p.price, p.qty, p.id);
+        setQ("");
+        toast.success(`${p.name} adicionado!`);
+      } else {
+        toast.error("Produto sem estoque!");
+      }
+    }
+  };
 
   return (
     <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1fr_380px]">
@@ -118,27 +158,29 @@ function Pdv() {
           <input
             value={q}
             onChange={e => setQ(e.target.value)}
-            placeholder="Buscar por nome ou código..."
-            className="w-full rounded-3xl border border-border/60 bg-surface/70 py-5 pl-14 pr-5 text-base placeholder:text-muted-foreground focus:border-electric/60 focus:outline-none focus:ring-4 focus:ring-electric/20 card-inset"
+            onKeyDown={handleKeyDown}
+            autoFocus
+            placeholder="Digite o nome do produto..."
+            className="w-full rounded-3xl border-2 border-electric/30 bg-surface/80 py-6 pl-14 pr-5 text-xl placeholder:text-muted-foreground focus:border-electric focus:outline-none focus:ring-4 focus:ring-electric/20 card-inset shadow-lg transition-all"
           />
           {q && searchResults.length > 0 && (
             <div className="absolute z-10 w-full mt-2 bg-surface border border-border/60 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
-              {searchResults.map(p => (
+              {searchResults.map((p, idx) => (
                 <button
-                  key={p.code}
+                  key={p.id || p.name}
                   disabled={p.qty <= 0}
                   onClick={() => { add(p.name, p.price, p.qty, p.id); setQ(""); }}
-                  className="w-full flex items-center justify-between p-4 hover:bg-elevated transition border-b border-border/40 last:border-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className={`w-full flex items-center justify-between p-5 transition border-b border-border/40 last:border-0 disabled:opacity-50 disabled:cursor-not-allowed ${idx === 0 ? "bg-electric/5" : "hover:bg-elevated"}`}
                 >
-                  <div className="flex flex-col items-start">
-                    <span className="font-semibold text-sm">{p.name}</span>
-                    <span className="text-xs text-muted-foreground">{p.code}</span>
-                  </div>
-                  <div className="flex flex-col items-end">
-                    <span className="font-bold text-aqua">R$ {p.price.toFixed(2)}</span>
-                    <span className={`text-xs font-semibold ${p.qty > 0 ? "text-muted-foreground" : "text-destructive"}`}>
-                      {p.qty > 0 ? `${p.qty} em estoque` : "Indisponível"}
+                  <div className="flex flex-col items-start text-left">
+                    <span className="font-bold text-lg">{p.name}</span>
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${p.qty > 0 ? "bg-aqua/10 text-aqua" : "bg-destructive/10 text-destructive"}`}>
+                      {p.qty > 0 ? `${p.qty} em estoque` : "Esgotado"}
                     </span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-2xl font-black text-electric">R$ {p.price.toFixed(2)}</span>
+                    {idx === 0 && <span className="block text-[10px] uppercase font-bold text-muted-foreground mt-1">Pressione Enter para adicionar</span>}
                   </div>
                 </button>
               ))}
@@ -288,9 +330,15 @@ function Pdv() {
           </div>
         </div>
 
+
         <button onClick={handleCheckout} disabled={cart.length === 0} className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-electric to-aqua py-3.5 text-sm font-bold text-background shadow-[0_10px_30px_-10px] shadow-electric/60 transition hover:scale-[1.01] disabled:opacity-50 disabled:scale-100">
           <CreditCard className="h-4 w-4" />
-          Finalizar venda
+          Finalizar Venda
+        </button>
+
+        <button onClick={handleCloseCashier} className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-destructive/50 bg-destructive/10 py-3.5 text-sm font-bold text-destructive transition hover:bg-destructive hover:text-white">
+          <Lock className="h-4 w-4" />
+          Fechar Caixa
         </button>
       </aside>
     </div>

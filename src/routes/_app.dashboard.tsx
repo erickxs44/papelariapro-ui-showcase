@@ -11,7 +11,7 @@ import {
 import {
   TrendingUp,
   AlertTriangle,
-  ScanBarcode,
+  ShoppingCart,
   ArrowUpRight,
   Pencil,
   BookOpen,
@@ -144,7 +144,7 @@ function Dashboard() {
               <p className="mt-1 text-xs text-muted-foreground">Iniciar nova venda agora</p>
             </div>
             <div className="grid h-11 w-11 place-items-center rounded-2xl bg-electric/30 text-electric transition group-hover:rotate-6">
-              <ScanBarcode className="h-5 w-5" />
+              <ShoppingCart className="h-5 w-5" />
             </div>
           </div>
           <div className="mt-5 inline-flex items-center gap-1 text-xs font-semibold text-foreground">

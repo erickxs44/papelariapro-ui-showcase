@@ -123,9 +123,9 @@ function Dashboard() {
   return (
     <div className="mx-auto max-w-7xl">
       <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div>
+        <div className="ml-2">
           <p className="text-sm font-medium text-aqua">Bem-vinda de volta, Ana 👋</p>
-          <h1 className="mt-1 text-3xl font-bold tracking-tight md:text-4xl">Dashboard</h1>
+          <h1 className="mt-1 text-3xl font-bold tracking-tight md:text-4xl">Resumo de Vendas</h1>
         </div>
         <div className="flex items-center gap-3">
           <div className="relative">
@@ -151,29 +151,32 @@ function Dashboard() {
         </div>
       </div>
 
+      {/* Metrics Row */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+        <div className="rounded-3xl border border-border/60 bg-surface/80 p-6 flex flex-col items-center justify-center text-center shadow-lg backdrop-blur-md">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Faturamento</p>
+          <h2 className="text-3xl font-black text-white">R$ {salesTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</h2>
+        </div>
+        
+        <div className="rounded-3xl border border-border/60 bg-surface/80 p-6 flex flex-col items-center justify-center text-center shadow-lg backdrop-blur-md">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Despesas</p>
+          <h2 className="text-3xl font-black text-red-500">R$ {expensesTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</h2>
+        </div>
+
+        <div className="rounded-3xl border border-border/60 bg-surface/80 p-6 flex flex-col items-center justify-center text-center shadow-lg backdrop-blur-md">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Lucro Real</p>
+          <h2 className={`text-3xl font-black ${lucroReal >= 0 ? "text-emerald-400" : "text-red-500"}`}>
+            R$ {lucroReal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+          </h2>
+        </div>
+      </div>
+
       {/* Main Grid */}
-      <div className="grid grid-cols-1 gap-5">
+      <div className="grid grid-cols-1 gap-8">
         
         {/* Card 1 — Chart */}
         <div className="rounded-3xl border border-border/60 bg-surface/70 p-6 card-inset">
-          <div className="mb-6 flex flex-col gap-4 border-b border-border/40 pb-6 md:flex-row md:items-center md:justify-between">
-            <div className="grid grid-cols-3 gap-4 md:gap-8">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Faturamento</p>
-                <h2 className="mt-1 text-2xl font-bold text-aqua">R$ {salesTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</h2>
-              </div>
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Despesas</p>
-                <h2 className="mt-1 text-2xl font-bold text-destructive">R$ {expensesTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</h2>
-              </div>
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Lucro Real</p>
-                <h2 className={`mt-1 text-2xl font-bold ${lucroReal >= 0 ? "text-electric" : "text-destructive"}`}>
-                  R$ {lucroReal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
-                </h2>
-              </div>
-            </div>
-            
+          <div className="mb-6 flex flex-col gap-4 pb-4 md:flex-row md:items-center md:justify-end">
             <div className="flex items-center gap-1 rounded-xl border border-border/50 bg-background/50 p-1">
               <button 
                 onClick={() => setPeriod("Hoje")}

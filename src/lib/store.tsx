@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { supabase } from "./supabase";
+import { toast } from "sonner";
 
 export type Cat = "Todos" | "Escolar" | "Escritório" | "Arte" | "Informática" | "Serviço";
 
@@ -188,10 +189,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       startDate.setDate(now.getDate() - 30);
     }
 
-    const { data: salesData } = await supabase.from('vendas').select('valor_total').gte('data_venda', startDate.toISOString());
+    const { data: salesData } = await supabase.from('vendas').select('valor_total, metodo_pagamento').gte('data_venda', startDate.toISOString());
     let currentSalesTotal = 0;
+    const salesByMethod = { Pix: 0, Cartão: 0, Dinheiro: 0 };
+    
     if (salesData) {
       currentSalesTotal = salesData.reduce((sum: number, v: any) => sum + v.valor_total, 0);
+      salesData.forEach((v: any) => {
+        if (v.metodo_pagamento === "Pix") salesByMethod.Pix += v.valor_total;
+        else if (v.metodo_pagamento === "Cartão") salesByMethod.Cartão += v.valor_total;
+        else if (v.metodo_pagamento === "Dinheiro") salesByMethod.Dinheiro += v.valor_total;
+      });
     }
 
     const { data: expData } = await supabase.from('despesas').select('valor').gte('data_pagamento', startDate.toISOString());
@@ -203,15 +211,97 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const lucro = currentSalesTotal - currentExpensesTotal;
     
     const html = `
-      <h1>Relatório de Fechamento de Caixa — PapelariaPro</h1>
-      <p><strong>Período:</strong> ${period}</p>
-      <p><strong>Gerado em:</strong> ${now.toLocaleString('pt-BR')}</p>
-      <hr />
-      <p><strong>Faturamento Total:</strong> R$ ${currentSalesTotal.toFixed(2)}</p>
-      <p><strong>Despesas Totais:</strong> R$ ${currentExpensesTotal.toFixed(2)}</p>
-      <p><strong>Lucro Real:</strong> R$ ${lucro.toFixed(2)}</p>
-      <hr />
-      <p><em>Relatório gerado automaticamente pelo sistema.</em></p>
+      <!DOCTYPE html>
+      <html>
+      <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      </head>
+      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+          <table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#0A0A0A" style="background-color: #0A0A0A;">
+              <tr>
+                  <td align="center" style="padding: 40px 20px;">
+                      <!-- Main Container Card -->
+                      <table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#1E1E1E" style="max-width: 600px; background-color: #1E1E1E; border-radius: 16px; border: 1px solid #333333; overflow: hidden; text-align: left;">
+                          <tr>
+                              <td style="padding: 40px 30px;">
+                                  
+                                  <!-- Header -->
+                                  <h1 style="color: #8b8bff; font-size: 28px; font-weight: 700; margin: 0 0 10px 0; line-height: 1.2;">Relatório de Fechamento</h1>
+                                  <div style="font-size: 16px; color: #E0E0E0; margin-bottom: 25px;">
+                                      <strong>Data:</strong> ${period === 'Hoje' ? 'Hoje' : `Últimos ${period === '7D' ? '7' : '30'} dias`}
+                                  </div>
+
+                                  <div style="height: 1px; background-color: #333333; margin: 0 0 25px 0; width: 100%;"></div>
+
+                                  <!-- Resumo de Vendas -->
+                                  <h2 style="font-size: 20px; font-weight: 700; margin: 0 0 20px 0; color: #FFFFFF;">Resumo de Vendas:</h2>
+
+                                  <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom: 35px;">
+                                      <tr>
+                                          <td style="padding-bottom: 15px; font-size: 18px; color: #FFFFFF;">
+                                              <span style="display: inline-block; width: 30px; font-size: 20px;">🟩</span> <strong>PIX:</strong>
+                                          </td>
+                                          <td align="right" style="padding-bottom: 15px; font-size: 18px; color: #FFFFFF; font-weight: bold;">
+                                              R$ ${salesByMethod.Pix.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                          </td>
+                                      </tr>
+                                      <tr>
+                                          <td style="padding-bottom: 15px; font-size: 18px; color: #FFFFFF;">
+                                              <span style="display: inline-block; width: 30px; font-size: 20px;">💳</span> <strong>Cartão:</strong>
+                                          </td>
+                                          <td align="right" style="padding-bottom: 15px; font-size: 18px; color: #FFFFFF; font-weight: bold;">
+                                              R$ ${salesByMethod.Cartão.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                          </td>
+                                      </tr>
+                                      <tr>
+                                          <td style="font-size: 18px; color: #FFFFFF;">
+                                              <span style="display: inline-block; width: 30px; font-size: 20px;">💵</span> <strong>Dinheiro:</strong>
+                                          </td>
+                                          <td align="right" style="font-size: 18px; color: #FFFFFF; font-weight: bold;">
+                                              R$ ${salesByMethod.Dinheiro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                          </td>
+                                      </tr>
+                                  </table>
+
+                                  <!-- Box de Resumo Financeiro -->
+                                  <table cellpadding="0" cellspacing="0" border="0" width="100%" bgcolor="#2A2A2A" style="background-color: #2A2A2A; border-radius: 12px; border: 1px solid #404040;">
+                                      <tr>
+                                          <td style="padding: 25px;">
+                                              
+                                              <div style="font-size: 18px; font-weight: 700; color: #FFFFFF; margin-bottom: 15px;">
+                                                  Total em Vendas: R$ ${currentSalesTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                              </div>
+                                              
+                                              <div style="font-size: 18px; font-weight: 700; color: #f87171; margin-bottom: 25px;">
+                                                  Total de Despesas: R$ ${currentExpensesTotal.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                              </div>
+                                              
+                                              <div>
+                                                  <div style="font-size: 16px; font-weight: 700; color: #4ade80; margin-bottom: 8px;">
+                                                      Lucro (Vendas - Despesas):
+                                                    </div>
+                                                  <div style="font-size: 26px; font-weight: 800; color: #4ade80;">
+                                                      R$ ${lucro.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                                  </div>
+                                              </div>
+
+                                          </td>
+                                      </tr>
+                                  </table>
+                                  
+                                  <div style="text-align: center; margin-top: 35px; color: #888888; font-size: 12px; line-height: 1.5;">
+                                      Relatório gerado automaticamente pelo sistema PapelariaPro.
+                                  </div>
+
+                              </td>
+                          </tr>
+                      </table>
+                  </td>
+              </tr>
+          </table>
+      </body>
+      </html>
     `;
 
     try {
@@ -222,7 +312,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          from: 'onboarding@resend.dev',
+          from: 'Papelaria Cash <onboarding@resend.dev>',
           to: 'papelaria573@gmail.com',
           subject: `Fechamento de Caixa — ${new Date().toLocaleDateString('pt-BR')}`,
           html: html,
@@ -231,6 +321,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (!res.ok) {
         throw new Error("Erro ao disparar API de e-mail");
       }
+      toast.success("Relatório de fechamento de caixa enviado por e-mail");
     } catch (err) {
       console.error("Erro ao enviar e-mail:", err);
       throw err;

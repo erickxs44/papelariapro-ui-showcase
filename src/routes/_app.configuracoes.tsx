@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Store, MapPin, Sun, Moon, Save, Bell, Globe } from "lucide-react";
+import { Store, MapPin, Sun, Moon, Save, Bell, Globe, Trash2 } from "lucide-react";
 import { useTheme } from "../components/theme-provider";
+import { useStore } from "../lib/store";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/configuracoes")({
   head: () => ({ meta: [{ title: "Configurações — PapelariaPro" }] }),
@@ -10,8 +12,27 @@ export const Route = createFileRoute("/_app/configuracoes")({
 
 function Configuracoes() {
   const { theme, toggle } = useTheme();
+  const { resetData } = useStore();
   const [name, setName] = useState("PapelariaPro Centro");
   const [addr, setAddr] = useState("Av. Paulista, 1500 — São Paulo, SP");
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+
+  const handleReset = async () => {
+    setIsResetting(true);
+    toast.promise(resetData(), {
+      loading: 'Limpando banco de dados...',
+      success: () => {
+        setIsResetting(false);
+        setShowResetModal(false);
+        return 'Sistema reiniciado com sucesso!';
+      },
+      error: () => {
+        setIsResetting(false);
+        return 'Erro ao reiniciar sistema.';
+      }
+    });
+  };
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -111,6 +132,50 @@ function Configuracoes() {
           </div>
         </div>
       </section>
+
+      <section className="rounded-3xl border border-destructive/30 bg-destructive/5 p-6 card-inset mt-8">
+        <h2 className="mb-1 text-lg font-bold text-destructive">Zona de Perigo</h2>
+        <p className="mb-5 text-xs text-muted-foreground">Ações irreversíveis que afetam todo o sistema.</p>
+        
+        <button 
+          onClick={() => setShowResetModal(true)}
+          className="flex items-center gap-2 rounded-2xl border border-destructive/40 bg-destructive/10 px-6 py-3 text-sm font-bold text-destructive transition hover:bg-destructive hover:text-white"
+        >
+          <Trash2 className="h-4 w-4" /> Reiniciar Dados
+        </button>
+      </section>
+
+      {/* Reset Modal */}
+      {showResetModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm animate-in fade-in">
+          <div className="w-full max-w-md rounded-3xl border border-border/60 bg-surface p-8 shadow-2xl animate-in zoom-in-95">
+            <div className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-destructive/20 text-destructive">
+              <Trash2 className="h-7 w-7" />
+            </div>
+            <h3 className="text-xl font-black">Tem certeza?</h3>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Esta ação apagará **todos** os produtos, vendas, despesas e configurações. Isso retornará o sistema ao estado original de fábrica e **não pode ser desfeito**.
+            </p>
+            
+            <div className="mt-8 flex flex-col gap-2">
+              <button
+                onClick={handleReset}
+                disabled={isResetting}
+                className="w-full rounded-2xl bg-destructive py-3.5 text-sm font-black text-white transition hover:scale-[1.01] active:scale-95 disabled:opacity-50"
+              >
+                {isResetting ? "Reiniciando..." : "Sim, apagar tudo"}
+              </button>
+              <button
+                onClick={() => setShowResetModal(false)}
+                disabled={isResetting}
+                className="w-full rounded-2xl bg-elevated py-3.5 text-sm font-bold text-foreground transition hover:bg-border/40"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

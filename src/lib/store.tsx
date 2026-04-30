@@ -16,12 +16,13 @@ export type Item = {
 type StoreContextType = {
   items: Item[];
   addStock: (item: Item) => void;
-  checkout: (cart: { id?: string; name: string; qty: number; price: number }[]) => Promise<void>;
+  checkout: (cart: { id?: string; name: string; qty: number; price: number }[], paymentMethod?: string) => Promise<void>;
   xeroxCount: number;
   addExpense: (desc: string, value: number) => Promise<void>;
   expenses: { desc: string; value: number; date: Date }[];
   sales: { value: number; date: Date }[];
   closeCashier: (period: "Hoje" | "7D" | "30D") => Promise<void>;
+  resetData: () => Promise<void>;
 };
 
 export function calculateLevel(qty: number): Item["level"] {
@@ -100,7 +101,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const checkout = async (cart: { id?: string; name: string; qty: number; price: number }[]) => {
+  const checkout = async (cart: { id?: string; name: string; qty: number; price: number }[], paymentMethod: string = "Dinheiro") => {
     const total = cart.reduce((s, i) => s + i.price * i.qty, 0);
 
     setItems((prev) =>
@@ -126,7 +127,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     const { data: vendaData, error: vendaError } = await supabase.from('vendas').insert({
       valor_total: total,
-      metodo_pagamento: 'Dinheiro',
+      metodo_pagamento: paymentMethod,
       data_venda: new Date().toISOString()
     }).select();
 
@@ -236,8 +237,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const resetData = async () => {
+    // Deletar em ordem para evitar erros de FK
+    await supabase.from('itens_venda').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('vendas').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('despesas').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    await supabase.from('produtos').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+
+    setItems([]);
+    setExpenses([]);
+    setSales([]);
+    setXeroxCount(0);
+  };
+
   return (
-    <StoreContext.Provider value={{ items, addStock, checkout, xeroxCount, addExpense, expenses, sales, closeCashier }}>
+    <StoreContext.Provider value={{ items, addStock, checkout, xeroxCount, addExpense, expenses, sales, closeCashier, resetData }}>
       {children}
     </StoreContext.Provider>
   );

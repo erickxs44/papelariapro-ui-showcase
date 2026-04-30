@@ -13,7 +13,9 @@ import {
   PackageX,
   GraduationCap,
   ReceiptText,
-  Lock
+  Lock,
+  Wallet,
+  Smartphone
 } from "lucide-react";
 import { useStore } from "../lib/store";
 import { toast } from "sonner";
@@ -24,10 +26,10 @@ export const Route = createFileRoute("/_app/pdv")({
 });
 
 const services = [
-  { name: "Xerox P&B", price: 0.5, icon: Copy, tone: "from-slate-500 to-slate-700" },
-  { name: "Xerox Color", price: 1.5, icon: Palette, tone: "from-electric to-purple-500" },
-  { name: "Impressão", price: 2.0, icon: Printer, tone: "from-aqua to-emerald-500" },
-  { name: "Encadernação", price: 8.0, icon: BookOpen, tone: "from-amber-400 to-orange-500" },
+  { name: "Xerox P&B", price: 0.5, icon: Copy },
+  { name: "Xerox Color", price: 1.5, icon: Palette },
+  { name: "Impressão", price: 2.0, icon: Printer },
+  { name: "Encadernação", price: 8.0, icon: BookOpen },
 ];
 
 const quickProducts = [
@@ -58,6 +60,7 @@ function Pdv() {
   const { items, checkout, xeroxCount } = useStore();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [q, setQ] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<"Dinheiro" | "Cartão" | "Pix">("Dinheiro");
 
   const add = (name: string, price: number, stockQty?: number, id?: string) => {
     if (stockQty !== undefined && stockQty <= 0) {
@@ -99,7 +102,7 @@ function Pdv() {
     if (cart.length === 0) return;
     toast.promise(
       async () => {
-        await checkout(cart);
+        await checkout(cart, paymentMethod);
         setCart([]);
       },
       {
@@ -182,19 +185,19 @@ function Pdv() {
                   Xerox hoje: {xeroxCount}
                 </div>
               </div>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             {services.map((s) => (
               <button
                 key={s.name}
                 onClick={() => add(s.name, s.price)}
-                className={`group flex flex-col items-start gap-3 rounded-3xl bg-gradient-to-br ${s.tone} p-5 text-left text-white transition hover:scale-[1.02] card-inset`}
+                className="group flex flex-col items-center justify-center gap-3 rounded-3xl border border-aqua/20 bg-surface/40 p-5 text-center transition hover:border-aqua/50 hover:bg-surface/60 hover:scale-[1.02] card-inset"
               >
-                <div className="grid h-11 w-11 place-items-center rounded-2xl bg-white/20 backdrop-blur">
-                  <s.icon className="h-5 w-5" />
+                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-aqua/10 text-aqua transition-colors group-hover:bg-aqua/20">
+                  <s.icon className="h-6 w-6" />
                 </div>
                 <div>
-                  <p className="text-base font-bold">{s.name}</p>
-                  <p className="text-xs opacity-80">R$ {s.price.toFixed(2)}</p>
+                  <p className="text-sm font-bold text-foreground transition-colors group-hover:text-aqua">{s.name}</p>
+                  <p className="text-[11px] font-black text-muted-foreground">R$ {s.price.toFixed(2)}</p>
                 </div>
               </button>
             ))}
@@ -316,9 +319,36 @@ function Pdv() {
         </div>
 
 
-        <button onClick={handleCheckout} disabled={cart.length === 0} className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-electric to-aqua py-3.5 text-sm font-bold text-background shadow-[0_10px_30px_-10px] shadow-electric/60 transition hover:scale-[1.01] disabled:opacity-50 disabled:scale-100">
-          <CreditCard className="h-4 w-4" />
-          Finalizar Venda
+        <div className="mt-4 space-y-3 border-t border-border/60 pt-4">
+          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Forma de Pagamento</p>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { id: "Dinheiro", icon: Wallet },
+              { id: "Cartão", icon: CreditCard },
+              { id: "Pix", icon: Smartphone }
+            ].map(m => (
+              <button
+                key={m.id}
+                onClick={() => setPaymentMethod(m.id as any)}
+                className={`flex flex-col items-center gap-1.5 rounded-2xl border py-3 transition-all ${paymentMethod === m.id ? "border-aqua bg-aqua/10 text-aqua shadow-[0_0_15px_-5px_rgba(34,211,238,0.4)]" : "border-border/60 bg-elevated/40 text-muted-foreground hover:bg-elevated"}`}
+              >
+                <m.icon className="h-4 w-4" />
+                <span className="text-[10px] font-bold uppercase">{m.id}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <button 
+          onClick={handleCheckout} 
+          disabled={cart.length === 0} 
+          className="mt-6 flex w-full flex-col items-center justify-center gap-1 rounded-2xl bg-gradient-to-r from-electric to-aqua py-3.5 shadow-[0_10px_30px_-10px] shadow-electric/60 transition hover:scale-[1.01] disabled:opacity-50 disabled:scale-100"
+        >
+          <div className="flex items-center gap-2 text-sm font-black text-background">
+            <CreditCard className="h-4 w-4" />
+            Finalizar Venda
+          </div>
+          <span className="text-[10px] font-bold uppercase opacity-80 text-background">Pagar com {paymentMethod}</span>
         </button>
       </aside>
     </div>

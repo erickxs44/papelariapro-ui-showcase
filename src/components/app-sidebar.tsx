@@ -1,9 +1,10 @@
 import { Link, useLocation } from "@tanstack/react-router";
-import { LayoutDashboard, ScanBarcode, Package, Settings, PenLine } from "lucide-react";
+import { LayoutDashboard, ScanBarcode, Package, Settings, PenLine, ArrowLeftRight } from "lucide-react";
 
 const items = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/pdv", label: "PDV", icon: ScanBarcode },
+  { to: "/movimentacoes", label: "Movimentações", icon: ArrowLeftRight },
   { to: "/estoque", label: "Estoque", icon: Package },
   { to: "/configuracoes", label: "Configurações", icon: Settings },
 ] as const;

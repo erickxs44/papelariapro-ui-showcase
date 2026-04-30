@@ -38,7 +38,7 @@ export function FAB() {
   const handleCloseCashier = async () => {
     setLoading(true);
     try {
-      await closeCashier();
+      await closeCashier("Hoje");
       toast.success("Relatório de fechamento enviado por e-mail!");
       setOpen(false);
     } catch (err) {

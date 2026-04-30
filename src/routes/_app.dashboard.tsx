@@ -221,6 +221,7 @@ function Dashboard() {
               </AreaChart>
             </ResponsiveContainer>
           </div>
+        </div>
 
 
         {/* Card 2 — Top vendidos */}

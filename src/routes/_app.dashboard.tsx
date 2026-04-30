@@ -22,8 +22,9 @@ import {
   DollarSign,
   Lock
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useStore } from "../lib/store";
+import { supabase } from "../lib/supabase";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/dashboard")({
@@ -33,17 +34,55 @@ export const Route = createFileRoute("/_app/dashboard")({
 
 
 
-const topProducts = [
-  { name: "Caderno Universitário 200fls", sales: 142, icon: BookOpen, tone: "from-electric to-aqua" },
-  { name: "Caneta Esferográfica Azul", sales: 128, icon: Pencil, tone: "from-aqua to-electric" },
-  { name: "Lápis de Cor 24 cores", sales: 96, icon: Palette, tone: "from-electric to-purple-400" },
-  { name: "Impressão A4 Color", sales: 84, icon: Printer, tone: "from-aqua to-emerald-400" },
-];
+// Dynamic types and calculation inside the component
 
 function Dashboard() {
-  const { sales, expenses, closeCashier } = useStore();
+  const { sales, expenses, closeCashier, items } = useStore();
   const [period, setPeriod] = useState<"Hoje" | "7D" | "30D">("Hoje");
   const [showReportMenu, setShowReportMenu] = useState(false);
+  const [dbTopProducts, setDbTopProducts] = useState<any[]>([]);
+  
+  useEffect(() => {
+    const fetchTopProducts = async () => {
+      const now = new Date();
+      const start = new Date(now);
+      start.setDate(now.getDate() - 7);
+      
+      const { data, error } = await supabase
+        .from('itens_venda')
+        .select(`
+          quantidade,
+          preco_unitario,
+          produtos (nome)
+        `)
+        .gte('vendas.data_venda', start.toISOString()); // This join might need a different syntax depending on Supabase relations
+
+      // Simpler approach: fetch all and group if join is tricky, 
+      // but let's try to aggregate by product name/id
+      const { data: rawData } = await supabase.from('itens_venda').select('quantidade, preco_unitario, produto_id').limit(100);
+      
+      if (rawData) {
+        const stats: Record<string, { qty: number; price: number; name: string }> = {};
+        for (const row of rawData) {
+          const prod = items.find(i => i.id === row.produto_id);
+          const name = prod?.name || "Produto Desconhecido";
+          if (!stats[name]) stats[name] = { qty: 0, price: row.preco_unitario, name };
+          stats[name].qty += row.quantidade;
+        }
+        const sorted = Object.values(stats).sort((a, b) => b.qty - a.qty).slice(0, 10);
+        setDbTopProducts(sorted);
+      }
+    };
+    fetchTopProducts();
+  }, [items]);
+
+  const recentMovements = useMemo(() => {
+    const mvs = [
+      ...sales.map(s => ({ type: "venda" as const, title: "Venda realizada", value: s.value, date: s.date })),
+      ...expenses.map(e => ({ type: "despesa" as const, title: e.desc, value: e.value, date: e.date }))
+    ].sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 10);
+    return mvs;
+  }, [sales, expenses]);
   
   const startDate = useMemo(() => {
     const now = new Date();
@@ -121,7 +160,7 @@ function Dashboard() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl">
+    <div className="mx-auto max-w-7xl pb-12">
       <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div className="ml-2">
           <p className="text-sm font-medium text-aqua">Bem-vinda de volta, Ana 👋</p>
@@ -172,7 +211,7 @@ function Dashboard() {
       </div>
 
       {/* Main Grid */}
-      <div className="grid grid-cols-1 gap-8">
+      <div className="grid grid-cols-1 gap-6">
         
         {/* Card 1 — Chart */}
         <div className="rounded-3xl border border-border/60 bg-surface/70 p-6 card-inset">
@@ -199,7 +238,7 @@ function Dashboard() {
             </div>
           </div>
           
-          <div className="h-[300px] w-full">
+          <div className="h-[255px] w-full">
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <defs>
@@ -227,33 +266,91 @@ function Dashboard() {
         </div>
 
 
-        {/* Card 2 — Top vendidos */}
-        <div className="rounded-3xl border border-border/60 bg-surface/70 p-6 card-inset">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Mais vendidos</p>
-              <h3 className="mt-1 text-xl font-bold">Top produtos da semana</h3>
+        {/* Bottom Section: Top Products & Recent Movements */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          
+          {/* Column 1: Produtos Mais Vendidos */}
+          <div className="rounded-3xl border border-border/60 bg-surface/70 p-6 card-inset backdrop-blur-md">
+            <div className="mb-6 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Performance</p>
+                <h3 className="text-xl font-bold">Produtos Mais Vendidos</h3>
+              </div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-aqua/10 text-aqua">
+                <TrendingUp className="h-5 w-5" />
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {dbTopProducts.map((p, idx) => (
+                <div key={p.name} className="group relative flex items-center gap-4 rounded-2xl border border-border/40 bg-elevated/40 p-4 transition-all hover:border-aqua/40 hover:bg-elevated/60">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-background/50 font-bold text-muted-foreground">
+                    #{idx + 1}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-sm font-bold">{p.name}</p>
+                      {idx < 3 && <Sparkles className="h-3.5 w-3.5 text-amber-400 fill-amber-400" />}
+                    </div>
+                    <p className="text-xs text-muted-foreground">R$ {p.price.toFixed(2)} unit. • {p.qty} vendidos</p>
+                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-background/50">
+                      <div 
+                        className="h-full rounded-full bg-gradient-to-r from-aqua to-electric transition-all" 
+                        style={{ width: `${Math.min(100, (p.qty / (dbTopProducts[0]?.qty || 1)) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-black text-white">R$ {(p.qty * p.price).toLocaleString("pt-BR")}</p>
+                  </div>
+                </div>
+              ))}
+              {dbTopProducts.length === 0 && (
+                <div className="py-12 text-center">
+                  <p className="text-sm text-muted-foreground">Nenhuma venda registrada no período.</p>
+                </div>
+              )}
             </div>
           </div>
-          <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            {topProducts.map((p) => (
-              <li
-                key={p.name}
-                className="flex items-center gap-4 rounded-2xl border border-border/40 bg-elevated/60 p-3 transition hover:border-electric/40"
-              >
-                <div className={`grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br ${p.tone} text-background`}>
-                  <p.icon className="h-5 w-5" />
+
+          {/* Column 2: Movimentações Recentes */}
+          <div className="rounded-3xl border border-border/60 bg-surface/70 p-6 card-inset backdrop-blur-md">
+            <div className="mb-6 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tempo Real</p>
+                <h3 className="text-xl font-bold">Movimentações Recentes</h3>
+              </div>
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-electric/10 text-electric">
+                <ShoppingCart className="h-5 w-5" />
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {recentMovements.map((m, idx) => (
+                <div key={idx} className="flex items-center gap-4 rounded-2xl border border-border/40 bg-elevated/40 p-4 transition-all hover:border-electric/20">
+                  <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${m.type === 'venda' ? 'bg-emerald-400/10 text-emerald-400' : 'bg-red-500/10 text-red-500'}`}>
+                    {m.type === 'venda' ? <ArrowUpRight className="h-5 w-5" /> : <ArrowDownRight className="h-5 w-5" />}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold">{m.title}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {m.date.toLocaleDateString('pt-BR')} às {m.date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className={`text-sm font-black ${m.type === 'venda' ? 'text-emerald-400' : 'text-red-500'}`}>
+                      {m.type === 'venda' ? '+' : '-'} R$ {m.value.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold">{p.name}</p>
-                  <p className="text-xs text-muted-foreground">{p.sales} unidades vendidas</p>
+              ))}
+              {recentMovements.length === 0 && (
+                <div className="py-12 text-center">
+                  <p className="text-sm text-muted-foreground">Nenhuma movimentação recente.</p>
                 </div>
-                <div className="text-right">
-                  <p className="text-sm font-bold text-aqua">+{Math.round(p.sales * 0.6)}%</p>
-                </div>
-              </li>
-            ))}
-          </ul>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

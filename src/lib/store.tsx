@@ -20,8 +20,8 @@ type StoreContextType = {
   xeroxCount: number;
   addExpense: (desc: string, value: number) => Promise<void>;
   expenses: { desc: string; value: number; date: Date }[];
-  salesTotal: number;
-  closeCashier: () => Promise<void>;
+  sales: { value: number; date: Date }[];
+  closeCashier: (period: "Hoje" | "7D" | "30D") => Promise<void>;
 };
 
 export function calculateLevel(qty: number): Item["level"] {
@@ -37,7 +37,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<Item[]>([]);
   const [xeroxCount, setXeroxCount] = useState(0);
   const [expenses, setExpenses] = useState<{ desc: string; value: number; date: Date }[]>([]);
-  const [salesTotal, setSalesTotal] = useState(0);
+  const [sales, setSales] = useState<{ value: number; date: Date }[]>([]);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -68,10 +68,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     };
 
     const fetchSales = async () => {
-      const { data, error } = await supabase.from('vendas').select('valor_total');
+      const { data, error } = await supabase.from('vendas').select('valor_total, data_venda');
       if (!error && data) {
-        const total = data.reduce((sum: number, v: any) => sum + v.valor_total, 0);
-        setSalesTotal(total);
+        setSales(data.map((d: any) => ({
+          value: d.valor_total,
+          date: new Date(d.data_venda)
+        })));
       }
     };
 
@@ -111,7 +113,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return item;
       })
     );
-    setSalesTotal(prev => prev + total);
+    // Optimistic sales append:
+    setSales(prev => [{ value: total, date: new Date() }, ...prev]);
 
     const xeroxPAndB = cart.find(c => c.name === "Xerox P&B");
     const xeroxColor = cart.find(c => c.name === "Xerox Color");
@@ -173,18 +176,25 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const closeCashier = async () => {
-    // Fetch latest directly from DB to ensure accuracy even if called immediately after checkout
-    let currentSalesTotal = salesTotal;
-    let currentExpensesTotal = expenses.reduce((s, e) => s + e.value, 0);
-
-    const { data: salesData } = await supabase.from('vendas').select('valor_total');
-    if (salesData) {
-      currentSalesTotal = salesData.reduce((sum: number, v: any) => sum + v.valor_total, 0);
-      setSalesTotal(currentSalesTotal); // Optional sync
+  const closeCashier = async (period: "Hoje" | "7D" | "30D") => {
+    const now = new Date();
+    let startDate = new Date();
+    if (period === "Hoje") {
+      startDate.setHours(0,0,0,0);
+    } else if (period === "7D") {
+      startDate.setDate(now.getDate() - 7);
+    } else if (period === "30D") {
+      startDate.setDate(now.getDate() - 30);
     }
 
-    const { data: expData } = await supabase.from('despesas').select('valor');
+    const { data: salesData } = await supabase.from('vendas').select('valor_total').gte('data_venda', startDate.toISOString());
+    let currentSalesTotal = 0;
+    if (salesData) {
+      currentSalesTotal = salesData.reduce((sum: number, v: any) => sum + v.valor_total, 0);
+    }
+
+    const { data: expData } = await supabase.from('despesas').select('valor').gte('data_pagamento', startDate.toISOString());
+    let currentExpensesTotal = 0;
     if (expData) {
       currentExpensesTotal = expData.reduce((sum: number, e: any) => sum + e.valor, 0);
     }
@@ -193,12 +203,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     
     const html = `
       <h1>Relatório de Fechamento de Caixa — PapelariaPro</h1>
-      <p><strong>Data:</strong> ${new Date().toLocaleDateString('pt-BR')}</p>
+      <p><strong>Período:</strong> ${period}</p>
+      <p><strong>Gerado em:</strong> ${now.toLocaleString('pt-BR')}</p>
       <hr />
       <p><strong>Faturamento Total:</strong> R$ ${currentSalesTotal.toFixed(2)}</p>
       <p><strong>Despesas Totais:</strong> R$ ${currentExpensesTotal.toFixed(2)}</p>
       <p><strong>Lucro Real:</strong> R$ ${lucro.toFixed(2)}</p>
-      <p><strong>Xerox Realizadas:</strong> ${xeroxCount}</p>
       <hr />
       <p><em>Relatório gerado automaticamente pelo sistema.</em></p>
     `;
@@ -227,7 +237,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <StoreContext.Provider value={{ items, addStock, checkout, xeroxCount, addExpense, expenses, salesTotal, closeCashier }}>
+    <StoreContext.Provider value={{ items, addStock, checkout, xeroxCount, addExpense, expenses, sales, closeCashier }}>
       {children}
     </StoreContext.Provider>
   );

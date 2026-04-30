@@ -19,9 +19,11 @@ import {
   Printer,
   Sparkles,
   ArrowDownRight,
-  DollarSign
+  DollarSign,
+  Lock
 } from "lucide-react";
 import { useStore } from "../lib/store";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard — PapelariaPro" }] }),
@@ -46,22 +48,44 @@ const topProducts = [
 ];
 
 function Dashboard() {
-  const { salesTotal, expenses, items } = useStore();
+  const { salesTotal, expenses, items, closeCashier } = useStore();
   
   const expensesTotal = expenses.reduce((s, e) => s + e.value, 0);
   const lucroReal = salesTotal - expensesTotal;
   const estoqueCriticoCount = items.filter(i => i.level === "Baixo" || i.level === "Indisponível").length;
 
+  const handleCloseCashier = async () => {
+    toast.promise(
+      async () => {
+        await closeCashier();
+      },
+      {
+        loading: 'Fechando caixa e enviando e-mail...',
+        success: 'Caixa fechado! Relatório enviado.',
+        error: 'Erro ao fechar caixa.',
+      }
+    );
+  };
+
   return (
     <div className="mx-auto max-w-7xl">
-      <div className="mb-8 flex items-end justify-between gap-4">
+      <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <p className="text-sm font-medium text-aqua">Bem-vinda de volta, Ana 👋</p>
           <h1 className="mt-1 text-3xl font-bold tracking-tight md:text-4xl">Dashboard</h1>
         </div>
-        <div className="hidden items-center gap-2 rounded-2xl border border-border/60 bg-surface/60 px-4 py-2 text-xs text-muted-foreground md:flex">
-          <Sparkles className="h-3.5 w-3.5 text-aqua" />
-          Sincronizado via Supabase
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleCloseCashier}
+            className="flex items-center gap-2 rounded-2xl bg-destructive px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-destructive/20 transition hover:bg-destructive/90"
+          >
+            <Lock className="h-4 w-4" />
+            Fechar Relatório
+          </button>
+          <div className="hidden items-center gap-2 rounded-2xl border border-border/60 bg-surface/60 px-4 py-2 text-xs text-muted-foreground xl:flex">
+            <Sparkles className="h-3.5 w-3.5 text-aqua" />
+            Sincronizado
+          </div>
         </div>
       </div>
 

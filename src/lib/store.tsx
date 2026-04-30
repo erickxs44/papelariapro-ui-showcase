@@ -204,13 +204,22 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     `;
 
     try {
-      const { resend } = await import("./resend");
-      await resend.emails.send({
-        from: 'onboarding@resend.dev',
-        to: 'papelaria573@gmail.com',
-        subject: `Fechamento de Caixa — ${new Date().toLocaleDateString('pt-BR')}`,
-        html: html,
+      const res = await fetch('/api/resend', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer re_Z4Puye3f_JAyWq8NNt4gTNQwXhvtNKPjC',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          from: 'onboarding@resend.dev',
+          to: 'papelaria573@gmail.com',
+          subject: `Fechamento de Caixa — ${new Date().toLocaleDateString('pt-BR')}`,
+          html: html,
+        })
       });
+      if (!res.ok) {
+        throw new Error("Erro ao disparar API de e-mail");
+      }
     } catch (err) {
       console.error("Erro ao enviar e-mail:", err);
       throw err;

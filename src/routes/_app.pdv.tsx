@@ -55,7 +55,7 @@ const listasEscolares = [
 type CartItem = { id?: string; name: string; price: number; qty: number };
 
 function Pdv() {
-  const { items, checkout, xeroxCount, closeCashier } = useStore();
+  const { items, checkout, xeroxCount } = useStore();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [q, setQ] = useState("");
 
@@ -110,22 +110,7 @@ function Pdv() {
     );
   };
 
-  const handleCloseCashier = async () => {
-    toast.promise(
-      async () => {
-        if (cart.length > 0) {
-          await checkout(cart);
-          setCart([]);
-        }
-        await closeCashier();
-      },
-      {
-        loading: 'Fechando caixa e enviando e-mail...',
-        success: 'Caixa fechado! Relatório enviado.',
-        error: 'Erro ao fechar caixa.',
-      }
-    );
-  };
+
 
   const searchResults = useMemo(() => {
     if (!q) return [];
@@ -334,11 +319,6 @@ function Pdv() {
         <button onClick={handleCheckout} disabled={cart.length === 0} className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-electric to-aqua py-3.5 text-sm font-bold text-background shadow-[0_10px_30px_-10px] shadow-electric/60 transition hover:scale-[1.01] disabled:opacity-50 disabled:scale-100">
           <CreditCard className="h-4 w-4" />
           Finalizar Venda
-        </button>
-
-        <button onClick={handleCloseCashier} className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border border-destructive/50 bg-destructive/10 py-3.5 text-sm font-bold text-destructive transition hover:bg-destructive hover:text-white">
-          <Lock className="h-4 w-4" />
-          Fechar Caixa
         </button>
       </aside>
     </div>

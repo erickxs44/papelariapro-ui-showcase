@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
   Search,
   Copy,
@@ -60,7 +61,7 @@ function Pdv() {
   const { items, checkout, xeroxCount } = useStore();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [q, setQ] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<"Dinheiro" | "Cartão" | "Pix">("Dinheiro");
+  const [paymentMethod, setPaymentMethod] = useState<"Dinheiro" | "Cartão" | "Pix" | "Fiado">("Dinheiro");
 
   const add = (name: string, price: number, stockQty?: number, id?: string) => {
     if (stockQty !== undefined && stockQty <= 0) {
@@ -134,10 +135,15 @@ function Pdv() {
   };
 
   return (
-    <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1fr_380px]">
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4 }}
+      className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1fr_380px]"
+    >
       <div className="space-y-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">PDV</h1>
+          <h1 className="text-3xl font-bold tracking-tight glow-text">PDV</h1>
           <p className="text-sm text-muted-foreground">Venda rápida e fluida.</p>
         </div>
 
@@ -264,43 +270,55 @@ function Pdv() {
         </div>
 
         <ul className="max-h-[42vh] space-y-2 overflow-y-auto pr-1">
-          {cart.length === 0 && (
-            <li className="rounded-2xl border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground">
-              Carrinho vazio
-            </li>
-          )}
-          {cart.map((i) => (
-            <li key={i.name} className="rounded-2xl bg-elevated/60 p-3">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold">{i.name}</p>
-                  <p className="text-xs text-muted-foreground">R$ {i.price.toFixed(2)} un.</p>
+          <AnimatePresence>
+            {cart.length === 0 && (
+              <motion.li 
+                initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                className="rounded-2xl border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground"
+              >
+                Carrinho vazio
+              </motion.li>
+            )}
+            {cart.map((i) => (
+              <motion.li 
+                key={i.name} 
+                initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95, x: 20 }}
+                transition={{ type: "spring", stiffness: 300, damping: 25 }}
+                className="rounded-2xl glass p-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold">{i.name}</p>
+                    <p className="text-xs text-muted-foreground">R$ {i.price.toFixed(2)} un.</p>
+                  </div>
+                  <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => remove(i.name)} className="text-muted-foreground hover:text-destructive">
+                    <Trash2 className="h-4 w-4" />
+                  </motion.button>
                 </div>
-                <button onClick={() => remove(i.name)} className="text-muted-foreground hover:text-destructive">
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-              <div className="mt-2 flex items-center justify-between">
-                <div className="flex items-center gap-1 rounded-full border border-border/60 bg-surface p-0.5">
-                  <button onClick={() => dec(i.name)} className="grid h-7 w-7 place-items-center rounded-full hover:bg-elevated">
-                    <Minus className="h-3.5 w-3.5" />
-                  </button>
-                  <span className="w-6 text-center text-sm font-semibold">{i.qty}</span>
-                  <button
-                    onClick={() => {
-                      const itemStock = items.find(stock => stock.name === i.name);
-                      // Se for serviço (sem item no stock) ou tiver estoque, adiciona
-                      add(i.name, i.price, itemStock?.qty, i.id);
-                    }}
-                    className="grid h-7 w-7 place-items-center rounded-full hover:bg-elevated"
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                  </button>
+                <div className="mt-2 flex items-center justify-between">
+                  <div className="flex items-center gap-1 rounded-full border border-border/60 bg-surface/50 p-0.5">
+                    <motion.button whileTap={{ scale: 0.9 }} onClick={() => dec(i.name)} className="grid h-7 w-7 place-items-center rounded-full hover:bg-elevated">
+                      <Minus className="h-3.5 w-3.5" />
+                    </motion.button>
+                    <span className="w-6 text-center text-sm font-semibold">{i.qty}</span>
+                    <motion.button
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => {
+                        const itemStock = items.find(stock => stock.name === i.name);
+                        add(i.name, i.price, itemStock?.qty, i.id);
+                      }}
+                      className="grid h-7 w-7 place-items-center rounded-full hover:bg-elevated"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </motion.button>
+                  </div>
+                  <p className="text-sm font-bold text-aqua">R$ {(i.price * i.qty).toFixed(2)}</p>
                 </div>
-                <p className="text-sm font-bold">R$ {(i.price * i.qty).toFixed(2)}</p>
-              </div>
-            </li>
-          ))}
+              </motion.li>
+            ))}
+          </AnimatePresence>
         </ul>
 
         <div className="mt-4 space-y-2 border-t border-border/60 pt-4 text-sm">
@@ -321,36 +339,41 @@ function Pdv() {
 
         <div className="mt-4 space-y-3 border-t border-border/60 pt-4">
           <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Forma de Pagamento</p>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-4 gap-2">
             {[
               { id: "Dinheiro", icon: Wallet },
               { id: "Cartão", icon: CreditCard },
-              { id: "Pix", icon: Smartphone }
+              { id: "Pix", icon: Smartphone },
+              { id: "Fiado", icon: ReceiptText }
             ].map(m => (
-              <button
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.95 }}
                 key={m.id}
                 onClick={() => setPaymentMethod(m.id as any)}
                 className={`flex flex-col items-center gap-1.5 rounded-2xl border py-3 transition-all ${paymentMethod === m.id ? "border-aqua bg-aqua/10 text-aqua shadow-[0_0_15px_-5px_rgba(34,211,238,0.4)]" : "border-border/60 bg-elevated/40 text-muted-foreground hover:bg-elevated"}`}
               >
                 <m.icon className="h-4 w-4" />
                 <span className="text-[10px] font-bold uppercase">{m.id}</span>
-              </button>
+              </motion.button>
             ))}
           </div>
         </div>
 
-        <button 
+        <motion.button 
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
           onClick={handleCheckout} 
           disabled={cart.length === 0} 
-          className="mt-6 flex w-full flex-col items-center justify-center gap-1 rounded-2xl bg-gradient-to-r from-electric to-aqua py-3.5 shadow-[0_10px_30px_-10px] shadow-electric/60 transition hover:scale-[1.01] disabled:opacity-50 disabled:scale-100"
+          className="mt-6 flex w-full flex-col items-center justify-center gap-1 rounded-2xl bg-gradient-to-r from-electric to-aqua py-3.5 shadow-[0_10px_30px_-10px] shadow-electric/60 transition disabled:opacity-50 btn-glow"
         >
           <div className="flex items-center gap-2 text-sm font-black text-background">
             <CreditCard className="h-4 w-4" />
             Finalizar Venda
           </div>
           <span className="text-[10px] font-bold uppercase opacity-80 text-background">Pagar com {paymentMethod}</span>
-        </button>
+        </motion.button>
       </aside>
-    </div>
+    </motion.div>
   );
 }

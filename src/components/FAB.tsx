@@ -15,44 +15,39 @@ const despesasRapidas = [
 
 export function FAB() {
   const [open, setOpen] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
+  const [modalType, setModalType] = useState<"venda" | "despesa" | null>(null);
   
-  const { addExpense, closeCashier } = useStore();
-  const [loading, setLoading] = useState(false);
+  const { addExpense, addQuickSale } = useStore();
   const [desc, setDesc] = useState("");
   const [val, setVal] = useState("");
-  const navigate = useNavigate();
-  const location = useLocation();
 
-  const handleDespesa = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!desc || !val) return;
-    addExpense(desc, parseFloat(val.replace(",", ".")));
-    toast.success("Despesa registrada com sucesso!");
-    setModalOpen(false);
+    const numericValue = parseFloat(val.replace(",", "."));
+    if (isNaN(numericValue) || numericValue <= 0) {
+      toast.error("Por favor, insira um valor válido.");
+      return;
+    }
+
+    if (modalType === "venda") {
+      addQuickSale(desc || "Vendas", numericValue);
+      toast.success("Venda registrada com sucesso!");
+    } else {
+      addExpense(desc, numericValue);
+      toast.success("Despesa registrada com sucesso!");
+    }
+
+    setModalType(null);
     setDesc("");
     setVal("");
     setOpen(false);
   };
 
-  const handleCloseCashier = async () => {
-    setLoading(true);
-    try {
-      await closeCashier("Hoje");
-      toast.success("Relatório de fechamento enviado por e-mail!");
-      setOpen(false);
-    } catch (err) {
-      toast.error("Erro ao enviar relatório. Verifique o console.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const novaVenda = () => {
+  const openModal = (type: "venda" | "despesa") => {
+    setModalType(type);
+    setDesc(type === "venda" ? "Vendas" : "");
+    setVal("");
     setOpen(false);
-    if (location.pathname !== "/pdv") {
-      navigate({ to: "/pdv" });
-    }
   };
 
   return (
@@ -68,31 +63,21 @@ export function FAB() {
         {open && (
           <div className="flex flex-col items-end gap-3 animate-in slide-in-from-bottom-4">
             <button
-              onClick={() => { setModalOpen(true); setOpen(false); }}
-              className="flex items-center gap-3 rounded-full bg-surface px-4 py-3 shadow-xl hover:bg-elevated border border-border/60"
+              onClick={() => openModal("despesa")}
+              className="group flex items-center gap-3 rounded-full bg-surface px-5 py-3.5 shadow-xl hover:bg-elevated border border-border/60 transition-all hover:scale-105 active:scale-95"
             >
-              <span className="text-sm font-semibold">Registrar Despesa</span>
-              <div className="grid h-8 w-8 place-items-center rounded-full bg-destructive/10 text-destructive">
-                <Receipt className="h-4 w-4" />
+              <span className="text-sm font-bold tracking-tight">Nova Despesa</span>
+              <div className="grid h-9 w-9 place-items-center rounded-full bg-destructive/10 text-destructive group-hover:bg-destructive group-hover:text-white transition-colors">
+                <Receipt className="h-5 w-5" />
               </div>
             </button>
             <button
-              onClick={handleCloseCashier}
-              disabled={loading}
-              className="flex items-center gap-3 rounded-full bg-surface px-4 py-3 shadow-xl hover:bg-elevated border border-border/60 disabled:opacity-50"
+              onClick={() => openModal("venda")}
+              className="group flex items-center gap-3 rounded-full bg-surface px-5 py-3.5 shadow-xl hover:bg-elevated border border-border/60 transition-all hover:scale-105 active:scale-95"
             >
-              <span className="text-sm font-semibold">Fechar Caixa</span>
-              <div className="grid h-8 w-8 place-items-center rounded-full bg-electric/10 text-electric">
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Lock className="h-4 w-4" />}
-              </div>
-            </button>
-            <button
-              onClick={novaVenda}
-              className="flex items-center gap-3 rounded-full bg-surface px-4 py-3 shadow-xl hover:bg-elevated border border-border/60"
-            >
-              <span className="text-sm font-semibold">Nova Venda</span>
-              <div className="grid h-8 w-8 place-items-center rounded-full bg-aqua/10 text-aqua">
-                <ShoppingCart className="h-4 w-4" />
+              <span className="text-sm font-bold tracking-tight">Nova Venda</span>
+              <div className="grid h-9 w-9 place-items-center rounded-full bg-aqua/10 text-aqua group-hover:bg-aqua group-hover:text-white transition-colors">
+                <ShoppingCart className="h-5 w-5" />
               </div>
             </button>
           </div>
@@ -100,48 +85,62 @@ export function FAB() {
 
         <button
           onClick={() => setOpen(!open)}
-          className={`grid h-14 w-14 place-items-center rounded-full bg-gradient-to-r from-electric to-aqua text-white shadow-[0_10px_30px_-10px] shadow-electric/60 transition-transform hover:scale-105 ${open ? "rotate-45" : ""}`}
+          className={`grid h-16 w-16 place-items-center rounded-full bg-gradient-to-tr from-electric via-electric to-aqua text-white shadow-[0_15px_40px_-10px] shadow-electric/50 transition-all duration-300 hover:scale-110 active:scale-90 ${open ? "rotate-45" : ""}`}
         >
-          <Plus className="h-6 w-6" />
+          <Plus className={`h-8 w-8 transition-transform duration-300`} />
         </button>
       </div>
 
-      {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md rounded-3xl border border-border/60 bg-surface p-6 shadow-2xl">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold flex items-center gap-2"><Receipt className="w-5 h-5 text-destructive" /> Lançar Saída de Caixa</h2>
-              <button onClick={() => setModalOpen(false)} className="rounded-full p-2 hover:bg-elevated text-muted-foreground">
-                <X className="w-5 h-5" />
+      {modalType && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-md p-4">
+          <div className="w-full max-w-md rounded-[2.5rem] border border-border/40 bg-surface/80 p-8 shadow-2xl backdrop-blur-xl animate-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-3">
+                <div className={`grid h-12 w-12 place-items-center rounded-2xl ${modalType === 'venda' ? 'bg-aqua/10 text-aqua' : 'bg-destructive/10 text-destructive'}`}>
+                  {modalType === 'venda' ? <ShoppingCart className="w-6 h-6" /> : <Receipt className="w-6 h-6" />}
+                </div>
+                <h2 className="text-2xl font-bold tracking-tight">
+                  {modalType === 'venda' ? 'Registrar Venda' : 'Lançar Despesa'}
+                </h2>
+              </div>
+              <button onClick={() => setModalType(null)} className="rounded-full p-2 hover:bg-elevated text-muted-foreground transition-colors">
+                <X className="w-6 h-6" />
               </button>
             </div>
             
-            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-3">Atalhos de Despesas</p>
-            <div className="grid grid-cols-2 gap-2 mb-6">
-              {despesasRapidas.map(d => (
-                <button
-                  key={d.name}
-                  type="button"
-                  onClick={() => setDesc(d.name)}
-                  className={`flex items-center gap-2 rounded-xl border p-3 text-left transition ${desc === d.name ? "border-electric bg-electric/10 text-electric" : "border-border/60 bg-elevated/40 hover:bg-elevated"}`}
-                >
-                  <span className="text-lg">{d.icon}</span>
-                  <span className="text-sm font-semibold">{d.name}</span>
-                </button>
-              ))}
-            </div>
-
-            <form onSubmit={handleDespesa} className="space-y-4">
-              <div>
-                <label className="text-sm font-semibold text-muted-foreground">Descrição</label>
-                <input required value={desc} onChange={e => setDesc(e.target.value)} className="mt-1 w-full rounded-xl border border-border/60 bg-elevated px-4 py-2" placeholder="Ex: Conta de Luz..." />
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground/60 ml-1">Descrição</label>
+                <input 
+                  required 
+                  value={desc} 
+                  onChange={e => setDesc(e.target.value)} 
+                  className="w-full rounded-2xl border border-border/40 bg-elevated/50 px-5 py-4 text-lg focus:outline-none focus:ring-2 focus:ring-electric/50 transition-all" 
+                  placeholder={modalType === 'venda' ? "Ex: Venda rápida" : "Ex: Papel A4, Internet..."} 
+                />
               </div>
-              <div>
-                <label className="text-sm font-semibold text-muted-foreground">Valor (R$)</label>
-                <input required value={val} onChange={e => setVal(e.target.value)} type="text" placeholder="0.00" className="mt-1 w-full rounded-xl border border-border/60 bg-elevated px-4 py-2" />
+              <div className="space-y-2">
+                <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground/60 ml-1">Valor (R$)</label>
+                <div className="relative">
+                  <span className="absolute left-5 top-1/2 -translate-y-1/2 text-lg font-bold text-muted-foreground">R$</span>
+                  <input 
+                    required 
+                    autoFocus
+                    value={val} 
+                    onChange={e => setVal(e.target.value)} 
+                    type="text" 
+                    placeholder="0,00" 
+                    className="w-full rounded-2xl border border-border/40 bg-elevated/50 pl-14 pr-5 py-4 text-2xl font-bold focus:outline-none focus:ring-2 focus:ring-electric/50 transition-all" 
+                  />
+                </div>
               </div>
-              <button type="submit" className="mt-2 w-full rounded-xl bg-destructive py-3 text-sm font-bold text-white shadow-lg shadow-destructive/20 hover:bg-destructive/90 flex items-center justify-center gap-2">
-                <Check className="w-4 h-4" /> Confirmar Saída
+              
+              <button 
+                type="submit" 
+                className={`mt-4 w-full rounded-2xl py-5 text-lg font-black text-white shadow-2xl transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-3 ${modalType === 'venda' ? 'bg-aqua shadow-aqua/20' : 'bg-destructive shadow-destructive/20'}`}
+              >
+                <Check className="w-6 h-6" /> 
+                {modalType === 'venda' ? 'Confirmar Venda' : 'Confirmar Saída'}
               </button>
             </form>
           </div>

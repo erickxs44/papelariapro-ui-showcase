@@ -13,6 +13,7 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppPdvRouteImport } from './routes/_app.pdv'
 import { Route as AppMovimentacoesRouteImport } from './routes/_app.movimentacoes'
+import { Route as AppFiadosRouteImport } from './routes/_app.fiados'
 import { Route as AppEstoqueRouteImport } from './routes/_app.estoque'
 import { Route as AppDashboardRouteImport } from './routes/_app.dashboard'
 import { Route as AppConfiguracoesRouteImport } from './routes/_app.configuracoes'
@@ -36,6 +37,11 @@ const AppMovimentacoesRoute = AppMovimentacoesRouteImport.update({
   path: '/movimentacoes',
   getParentRoute: () => AppRoute,
 } as any)
+const AppFiadosRoute = AppFiadosRouteImport.update({
+  id: '/fiados',
+  path: '/fiados',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppEstoqueRoute = AppEstoqueRouteImport.update({
   id: '/estoque',
   path: '/estoque',
@@ -57,6 +63,7 @@ export interface FileRoutesByFullPath {
   '/configuracoes': typeof AppConfiguracoesRoute
   '/dashboard': typeof AppDashboardRoute
   '/estoque': typeof AppEstoqueRoute
+  '/fiados': typeof AppFiadosRoute
   '/movimentacoes': typeof AppMovimentacoesRoute
   '/pdv': typeof AppPdvRoute
 }
@@ -65,6 +72,7 @@ export interface FileRoutesByTo {
   '/configuracoes': typeof AppConfiguracoesRoute
   '/dashboard': typeof AppDashboardRoute
   '/estoque': typeof AppEstoqueRoute
+  '/fiados': typeof AppFiadosRoute
   '/movimentacoes': typeof AppMovimentacoesRoute
   '/pdv': typeof AppPdvRoute
 }
@@ -75,6 +83,7 @@ export interface FileRoutesById {
   '/_app/configuracoes': typeof AppConfiguracoesRoute
   '/_app/dashboard': typeof AppDashboardRoute
   '/_app/estoque': typeof AppEstoqueRoute
+  '/_app/fiados': typeof AppFiadosRoute
   '/_app/movimentacoes': typeof AppMovimentacoesRoute
   '/_app/pdv': typeof AppPdvRoute
 }
@@ -85,6 +94,7 @@ export interface FileRouteTypes {
     | '/configuracoes'
     | '/dashboard'
     | '/estoque'
+    | '/fiados'
     | '/movimentacoes'
     | '/pdv'
   fileRoutesByTo: FileRoutesByTo
@@ -93,6 +103,7 @@ export interface FileRouteTypes {
     | '/configuracoes'
     | '/dashboard'
     | '/estoque'
+    | '/fiados'
     | '/movimentacoes'
     | '/pdv'
   id:
@@ -102,6 +113,7 @@ export interface FileRouteTypes {
     | '/_app/configuracoes'
     | '/_app/dashboard'
     | '/_app/estoque'
+    | '/_app/fiados'
     | '/_app/movimentacoes'
     | '/_app/pdv'
   fileRoutesById: FileRoutesById
@@ -141,6 +153,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppMovimentacoesRouteImport
       parentRoute: typeof AppRoute
     }
+    '/_app/fiados': {
+      id: '/_app/fiados'
+      path: '/fiados'
+      fullPath: '/fiados'
+      preLoaderRoute: typeof AppFiadosRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/_app/estoque': {
       id: '/_app/estoque'
       path: '/estoque'
@@ -169,6 +188,7 @@ interface AppRouteChildren {
   AppConfiguracoesRoute: typeof AppConfiguracoesRoute
   AppDashboardRoute: typeof AppDashboardRoute
   AppEstoqueRoute: typeof AppEstoqueRoute
+  AppFiadosRoute: typeof AppFiadosRoute
   AppMovimentacoesRoute: typeof AppMovimentacoesRoute
   AppPdvRoute: typeof AppPdvRoute
 }
@@ -177,6 +197,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppConfiguracoesRoute: AppConfiguracoesRoute,
   AppDashboardRoute: AppDashboardRoute,
   AppEstoqueRoute: AppEstoqueRoute,
+  AppFiadosRoute: AppFiadosRoute,
   AppMovimentacoesRoute: AppMovimentacoesRoute,
   AppPdvRoute: AppPdvRoute,
 }

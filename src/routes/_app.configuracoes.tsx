@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { Store, MapPin, Sun, Moon, Save, Bell, Globe, Trash2 } from "lucide-react";
 import { useTheme } from "../components/theme-provider";
@@ -17,6 +17,7 @@ function Configuracoes() {
   const [addr, setAddr] = useState("Av. Paulista, 1500 — São Paulo, SP");
   const [showResetModal, setShowResetModal] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const navigate = useNavigate();
 
   const handleReset = async () => {
     setIsResetting(true);
@@ -25,11 +26,12 @@ function Configuracoes() {
       success: () => {
         setIsResetting(false);
         setShowResetModal(false);
-        return 'Sistema reiniciado com sucesso!';
+        navigate({ to: "/dashboard" });
+        return 'Sistema resetado com sucesso!';
       },
       error: () => {
         setIsResetting(false);
-        return 'Erro ao reiniciar sistema.';
+        return 'Erro ao resetar sistema.';
       }
     });
   };
@@ -135,13 +137,13 @@ function Configuracoes() {
 
       <section className="rounded-3xl border border-destructive/30 bg-destructive/5 p-6 card-inset mt-8">
         <h2 className="mb-1 text-lg font-bold text-destructive">Zona de Perigo</h2>
-        <p className="mb-5 text-xs text-muted-foreground">Ações irreversíveis que afetam todo o sistema.</p>
+        <p className="mb-5 text-xs text-muted-foreground">Gerenciamento crítico de dados e ações irreversíveis.</p>
         
         <button 
           onClick={() => setShowResetModal(true)}
           className="flex items-center gap-2 rounded-2xl border border-destructive/40 bg-destructive/10 px-6 py-3 text-sm font-bold text-destructive transition hover:bg-destructive hover:text-white"
         >
-          <Trash2 className="h-4 w-4" /> Reiniciar Dados
+          <Trash2 className="h-4 w-4" /> Zerar dados do sistema
         </button>
       </section>
 
@@ -152,9 +154,9 @@ function Configuracoes() {
             <div className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-destructive/20 text-destructive">
               <Trash2 className="h-7 w-7" />
             </div>
-            <h3 className="text-xl font-black">Tem certeza?</h3>
+            <h3 className="text-xl font-black">Tem certeza que deseja apagar tudo?</h3>
             <p className="mt-2 text-sm text-muted-foreground">
-              Esta ação apagará **todos** os produtos, vendas, despesas e configurações. Isso retornará o sistema ao estado original de fábrica e **não pode ser desfeito**.
+              Esta ação é irreversível e todos os seus registros de vendas, despesas e produtos serão excluídos permanentemente.
             </p>
             
             <div className="mt-8 flex flex-col gap-2">
@@ -163,7 +165,7 @@ function Configuracoes() {
                 disabled={isResetting}
                 className="w-full rounded-2xl bg-destructive py-3.5 text-sm font-black text-white transition hover:scale-[1.01] active:scale-95 disabled:opacity-50"
               >
-                {isResetting ? "Reiniciando..." : "Sim, apagar tudo"}
+                {isResetting ? "Excluindo..." : "Confirmar Exclusão"}
               </button>
               <button
                 onClick={() => setShowResetModal(false)}

@@ -28,7 +28,7 @@ type Movement = {
 };
 
 function Movimentacoes() {
-  const { items } = useStore();
+  const { items, sales, expenses } = useStore();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"Todas" | "Entradas" | "Saídas">("Todas");
   const [movements, setMovements] = useState<Movement[]>([]);
@@ -93,7 +93,7 @@ function Movimentacoes() {
     };
 
     fetchData();
-  }, [items]);
+  }, [items, sales, expenses]);
 
   const filteredData = useMemo(() => {
     return movements.filter(m => {
@@ -158,10 +158,10 @@ function Movimentacoes() {
                 {loading ? (
                   Array.from({ length: 10 }).map((_, i) => (
                     <tr key={i} className="animate-pulse">
-                      <td className="px-6 py-4"><div className="h-4 w-24 rounded bg-elevated/60" /></td>
-                      <td className="px-6 py-4"><div className="h-4 w-48 rounded bg-elevated/60" /></td>
-                      <td className="px-6 py-4"><div className="h-4 w-20 rounded bg-elevated/60" /></td>
-                      <td className="px-6 py-4 text-right"><div className="h-4 w-16 ml-auto rounded bg-elevated/60" /></td>
+                      <td className="px-6 py-4"><div className="h-4 w-24 rounded bg-electric/20 backdrop-blur-sm" /></td>
+                      <td className="px-6 py-4"><div className="h-4 w-48 rounded bg-electric/20 backdrop-blur-sm" /></td>
+                      <td className="px-6 py-4"><div className="h-4 w-20 rounded bg-electric/20 backdrop-blur-sm" /></td>
+                      <td className="px-6 py-4 text-right"><div className="h-4 w-16 ml-auto rounded bg-electric/20 backdrop-blur-sm" /></td>
                     </tr>
                   ))
                 ) : filteredData.length > 0 ? (

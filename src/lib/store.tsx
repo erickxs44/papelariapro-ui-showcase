@@ -257,6 +257,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const { data: vendaData, error: vendaError } = await supabase.from('vendas').insert({
       valor_total: total,
       metodo_pagamento: paymentMethod,
+      descricao: cart.map(i => i.name).join(', '),
       data_venda: new Date().toISOString(),
       cliente_id: fiadoId
     }).select();
@@ -307,6 +308,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     await supabase.from('vendas').insert({
       valor_total: value,
       metodo_pagamento: 'Dinheiro',
+      descricao: desc || 'Venda Rápida',
       data_venda: new Date().toISOString()
     });
   };
@@ -325,6 +327,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     await supabase.from('vendas').insert({
       valor_total: value,
       metodo_pagamento: `Estoque: ${itemName}`,
+      descricao: `Estoque: ${itemName}`,
       data_venda: new Date().toISOString()
     });
   };

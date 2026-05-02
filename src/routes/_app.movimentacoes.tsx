@@ -46,6 +46,7 @@ function Movimentacoes() {
           valor_total,
           data_venda,
           metodo_pagamento,
+          descricao,
           itens_venda (
             quantidade,
             produto_id
@@ -63,11 +64,14 @@ function Movimentacoes() {
 
       const mSales: Movement[] = (salesData || []).map(s => {
         const itemIds = (s.itens_venda as any[] || []).map(iv => iv.produto_id);
-        const itemNames = itemIds.map(id => items.find(i => i.id === id)?.name).filter(Boolean);
+        let desc = (s as any).descricao;
         
-        let desc = itemNames.length > 0 
-          ? `Venda: ${itemNames.slice(0, 2).join(", ")}${itemNames.length > 2 ? "..." : ""}`
-          : "Venda PDV";
+        if (!desc) {
+          const itemNames = itemIds.map(id => items.find(i => i.id === id)?.name).filter(Boolean);
+          desc = itemNames.length > 0 
+            ? `Venda: ${itemNames.slice(0, 2).join(", ")}${itemNames.length > 2 ? "..." : ""}`
+            : "Venda PDV";
+        }
           
         let typeVal: "entrada" | "saida" = "entrada";
         let category = "Venda";
@@ -199,25 +203,27 @@ function Movimentacoes() {
                let valuePrefix = isPendente ? '' : isEntrada ? '+' : '-';
 
                return (
-                 <div key={m.id} className="flex items-center px-2 py-4 border-b border-border/10 hover:bg-white/[0.02] transition-colors">
+                 <div key={m.id} className="grid grid-cols-[44px_1fr_auto] items-start px-2 py-4 border-b border-border/10 hover:bg-white/[0.02] transition-colors gap-1">
                    {/* Left: Date */}
-                   <div className="w-11 flex-shrink-0 text-[11px] font-medium text-muted-foreground leading-none">
+                   <div className="text-[11px] font-medium text-muted-foreground pt-1.5">
                      {m.date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
                    </div>
                    
                    {/* Center: Icon + Description */}
-                   <div className="flex-1 min-w-0 flex items-center gap-2.5 ml-1">
-                     <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${iconBg}`}>
+                   <div className="flex items-start gap-3 min-w-0">
+                     <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full mt-0.5 ${iconBg}`}>
                        <IconCmp className="h-4 w-4" />
                      </div>
                      <div className="flex flex-col min-w-0">
-                       <span className="font-bold text-sm text-foreground truncate">{m.description}</span>
-                       <span className="text-[10px] text-muted-foreground truncate">{m.category}</span>
+                       <span className="font-bold text-sm text-foreground whitespace-normal break-words overflow-visible leading-tight">
+                         {m.description}
+                       </span>
+                       <span className="text-[10px] text-muted-foreground mt-0.5">{m.category}</span>
                      </div>
                    </div>
                    
                    {/* Right: Value */}
-                   <div className={`flex-shrink-0 font-bold text-sm text-right ml-2 ${valueColor}`}>
+                   <div className={`font-bold text-sm text-right pt-1.5 ml-2 ${valueColor}`}>
                      {valuePrefix}R$ {m.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                    </div>
                  </div>

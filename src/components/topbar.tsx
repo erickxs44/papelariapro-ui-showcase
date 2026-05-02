@@ -1,4 +1,4 @@
-import { Bell, Search, Sun, Moon, User, Menu } from "lucide-react";
+import { Bell, Search, Palette, Moon, User, Menu } from "lucide-react";
 import { useTheme } from "./theme-provider";
 import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "./ui/sheet";
 import { SidebarContent } from "./app-sidebar";
@@ -37,7 +37,7 @@ export function Topbar() {
           aria-label="Alternar tema"
           className="grid h-10 w-10 place-items-center rounded-2xl border border-border/60 bg-surface/60 text-muted-foreground transition hover:text-foreground"
         >
-          {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          {theme === "black" ? <Moon className="h-4 w-4 text-electric" /> : <Palette className="h-4 w-4 text-aqua" />}
         </button>
         <button className="grid h-10 w-10 place-items-center rounded-2xl border border-border/60 bg-surface/60 text-muted-foreground transition hover:text-foreground">
           <Bell className="h-4 w-4" />

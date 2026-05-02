@@ -16,7 +16,7 @@ function Login() {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    const isLogged = localStorage.getItem("isLoggedIn");
+    const isLogged = sessionStorage.getItem("isLoggedIn");
     if (isLogged === "true") {
       navigate({ to: "/dashboard" });
     }
@@ -29,7 +29,7 @@ function Login() {
     // Simulate delay
     setTimeout(() => {
       if (username === "admin" && password === "papelaria123") {
-        localStorage.setItem("isLoggedIn", "true");
+        sessionStorage.setItem("isLoggedIn", "true");
         toast.success("Bem-vindo de volta! 👋");
         // Force redirect to ensure layout reads the session correctly
         window.location.href = "/dashboard";

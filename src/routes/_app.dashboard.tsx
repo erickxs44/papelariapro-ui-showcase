@@ -79,8 +79,8 @@ function Dashboard() {
 
   const recentMovements = useMemo(() => {
     const mvs = [
-      ...sales.map(s => ({ type: "venda" as const, title: "Venda realizada", value: s.value, date: s.date })),
-      ...expenses.map(e => ({ type: "despesa" as const, title: e.desc, value: e.value, date: e.date }))
+      ...sales.map(s => ({ type: "venda" as const, title: s.description || "Venda realizada", value: s.value, date: new Date(s.date) })),
+      ...expenses.map(e => ({ type: "despesa" as const, title: e.desc, value: e.value, date: new Date(e.date) }))
     ].sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 10);
     return mvs;
   }, [sales, expenses]);
@@ -119,12 +119,12 @@ function Dashboard() {
     };
 
     filteredSales.forEach(s => {
-      const key = getKey(s.date);
+      const key = getKey(new Date(s.date));
       sGroups[key] = (sGroups[key] || 0) + s.value;
     });
 
     filteredExpenses.forEach(e => {
-      const key = getKey(e.date);
+      const key = getKey(new Date(e.date));
       eGroups[key] = (eGroups[key] || 0) + e.value;
     });
 

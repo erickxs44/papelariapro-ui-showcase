@@ -14,6 +14,15 @@ export type Item = {
   level: "Cheio" | "Médio" | "Baixo" | "Indisponível";
 };
 
+export type Movement = {
+  id?: string;
+  clienteId?: string;
+  type: "Venda Fiada" | "Pagamento de Fiado" | "Venda" | "Entrada" | "Saída";
+  description: string;
+  value: number;
+  date: string;
+};
+
 type StoreContextType = {
   items: Item[];
   addStock: (item: Item) => void;
@@ -22,7 +31,7 @@ type StoreContextType = {
   addExpense: (desc: string, value: number) => Promise<void>;
   addQuickSale: (desc: string, value: number) => Promise<void>;
   expenses: { desc: string; value: number; date: Date }[];
-  sales: { value: number; date: Date }[];
+  sales: Movement[];
   fiados: any[];
   services: any[];
   quickProducts: string[];
@@ -51,7 +60,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<Item[]>([]);
   const [xeroxCount, setXeroxCount] = useState(0);
   const [expenses, setExpenses] = useState<{ desc: string; value: number; date: Date }[]>([]);
-  const [sales, setSales] = useState<{ value: number; date: Date }[]>([]);
+  const [sales, setSales] = useState<Movement[]>([]);
   const [fiados, setFiados] = useState<any[]>([]);
   
   // Catalogs that should be clearable
@@ -87,16 +96,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    const fetchSales = async () => {
-      const { data, error } = await supabase.from('vendas').select('valor_total, data_venda');
-      if (!error && data) {
-        setSales(data.map((d: any) => ({
-          value: d.valor_total,
-          date: new Date(d.data_venda)
-        })));
-      }
-    };
-
     const fetchFiados = async () => {
       const { data, error } = await supabase.from('fiados').select('*');
       if (!error && data) {
@@ -113,8 +112,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     fetchProducts();
     fetchExpenses();
-    fetchSales();
     fetchFiados();
+
+    // Load movements from LocalStorage as priority for detailed reports
+    const savedMovements = localStorage.getItem('papelaria_movements');
+    if (savedMovements) {
+      setSales(JSON.parse(savedMovements));
+    } else {
+      // Fallback to Supabase if local is empty
+      const fetchSalesFromDB = async () => {
+        const { data, error } = await supabase.from('vendas').select('*');
+        if (!error && data) {
+          setSales(data.map((d: any) => ({
+            id: d.id,
+            clienteId: d.cliente_id,
+            value: d.valor_total,
+            date: d.data_venda,
+            type: d.metodo_pagamento?.includes('Fiado') ? 'Venda Fiada' : 'Venda',
+            description: d.metodo_pagamento || 'Venda PDV'
+          })));
+        }
+      };
+      fetchSalesFromDB();
+    }
 
     // Initialize catalogs if not reset
     if (!localStorage.getItem('reset_performed')) {
@@ -190,7 +210,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setFiados(prev => prev.map(f => f.id === fiadoId ? { ...f, amount: newAmount, status: newAmount > 0 ? "Em Atraso" : "Pendente" } : f));
         await supabase.from('fiados').update({ valor: newAmount, status: newAmount > 0 ? "Em Atraso" : "Pendente" }).eq('id', fiadoId);
         
-        // Record history
+        // Record history in Supabase
         await supabase.from('historico_fiado').insert({
           id_cliente: fiadoId,
           descricao: `Compra PDV: ${cart.map(i => i.name).join(', ')}`,
@@ -198,6 +218,18 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           tipo: 'Compra',
           data: new Date().toISOString()
         });
+
+        // Record in LocalStorage movements
+        const newMove: Movement = {
+          clienteId: fiadoId,
+          type: "Venda Fiada",
+          description: `Compra PDV: ${cart.map(i => i.name).join(', ')}`,
+          value: total,
+          date: new Date().toISOString()
+        };
+        const updatedSales = [newMove, ...sales];
+        setSales(updatedSales);
+        localStorage.setItem('papelaria_movements', JSON.stringify(updatedSales));
       }
     }
 
@@ -262,7 +294,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   const addQuickSale = async (desc: string, value: number) => {
-    setSales(prev => [...prev, { value, date: new Date() }]);
+    const newMove: Movement = {
+      type: "Venda",
+      description: desc || 'Venda Rápida',
+      value: value,
+      date: new Date().toISOString()
+    };
+    const updatedSales = [newMove, ...sales];
+    setSales(updatedSales);
+    localStorage.setItem('papelaria_movements', JSON.stringify(updatedSales));
+
     await supabase.from('vendas').insert({
       valor_total: value,
       metodo_pagamento: 'Dinheiro',
@@ -271,7 +312,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   const addStockSale = async (itemName: string, value: number) => {
-    setSales(prev => [{ value, date: new Date() }, ...prev]);
+    const newMove: Movement = {
+      type: "Venda",
+      description: `Estoque: ${itemName}`,
+      value: value,
+      date: new Date().toISOString()
+    };
+    const updatedSales = [newMove, ...sales];
+    setSales(updatedSales);
+    localStorage.setItem('papelaria_movements', JSON.stringify(updatedSales));
+
     await supabase.from('vendas').insert({
       valor_total: value,
       metodo_pagamento: `Estoque: ${itemName}`,
@@ -511,7 +561,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       data: new Date().toISOString()
     });
 
-    // Add to vendas as pending
+    // Add to LocalStorage movements
+    const newMove: Movement = {
+      clienteId: fiadoId,
+      type: "Venda Fiada",
+      description: `Compra: ${desc}`,
+      value: amount,
+      date: new Date().toISOString()
+    };
+    const updatedSales = [newMove, ...sales];
+    setSales(updatedSales);
+    localStorage.setItem('papelaria_movements', JSON.stringify(updatedSales));
+
+    // Add to vendas as pending (Supabase)
     await supabase.from('vendas').insert({
       valor_total: amount,
       metodo_pagamento: `Fiado: ${desc}`,
@@ -538,7 +600,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       data: new Date().toISOString()
     });
 
-    // Add to vendas as green (Baixa)
+    // Add to LocalStorage movements
+    const newMove: Movement = {
+      clienteId: fiadoId,
+      type: "Pagamento de Fiado",
+      description: `Pagamento Realizado`,
+      value: amount,
+      date: new Date().toISOString()
+    };
+    const updatedSales = [newMove, ...sales];
+    setSales(updatedSales);
+    localStorage.setItem('papelaria_movements', JSON.stringify(updatedSales));
+
+    // Add to vendas as green (Baixa) (Supabase)
     await supabase.from('vendas').insert({
       valor_total: amount,
       metodo_pagamento: `Baixa Fiado: ${fiado.name}`,
@@ -548,25 +622,19 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   const getFiadoHistory = async (fiadoId: string) => {
-    const { data, error } = await supabase
-      .from('vendas')
-      .select('*')
-      .eq('cliente_id', fiadoId)
-      .order('data_venda', { ascending: false });
-    
-    if (error) {
-      console.error("Error fetching fiado history from movements:", error);
-      return [];
-    }
+    // Filter from global movements (LocalStorage priority)
+    const history = sales
+      .filter(m => m.clienteId === fiadoId)
+      .map(m => ({
+        id: m.id || Math.random().toString(),
+        data: m.date,
+        descricao: m.description,
+        valor: m.value,
+        tipo: m.type === "Pagamento de Fiado" ? "Pagamento" : "Compra"
+      }))
+      .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
 
-    // Map vendas to the format expected by the UI
-    return (data || []).map(v => ({
-      id: v.id,
-      data: v.data_venda,
-      descricao: v.metodo_pagamento.includes("Baixa") ? "Recebimento de Fiado" : v.metodo_pagamento.replace("Fiado: ", "Compra: "),
-      valor: v.valor_total,
-      tipo: v.metodo_pagamento.includes("Baixa") ? "Pagamento" : "Compra"
-    }));
+    return history;
   };
 
   return (

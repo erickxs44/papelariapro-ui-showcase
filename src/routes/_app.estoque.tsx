@@ -138,37 +138,37 @@ function Estoque() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-3xl border border-border/60 bg-surface/70 card-inset">
+      <div className="hidden md:block overflow-hidden rounded-3xl border border-border/60 bg-surface/70 card-inset">
         <table className="w-full text-sm">
           <thead className="bg-elevated/60 text-xs uppercase tracking-wider text-muted-foreground">
             <tr>
-              <th className="px-5 py-3 text-left font-semibold">Produto</th>
-              <th className="px-5 py-3 text-left font-semibold">Categoria</th>
-              <th className="px-5 py-3 text-right font-semibold">Preço Venda</th>
-              <th className="px-5 py-3 text-right font-semibold">Qtd</th>
-              <th className="px-5 py-3 text-left font-semibold">Estoque</th>
-              <th className="px-5 py-3 text-center font-semibold">Ações</th>
+              <th className="px-5 py-4 text-left font-semibold">Produto</th>
+              <th className="px-5 py-4 text-left font-semibold">Categoria</th>
+              <th className="px-5 py-4 text-right font-semibold">Preço Venda</th>
+              <th className="px-5 py-4 text-right font-semibold">Qtd</th>
+              <th className="px-5 py-4 text-left font-semibold">Estoque</th>
+              <th className="px-5 py-4 text-center font-semibold">Ações</th>
             </tr>
           </thead>
           <tbody>
             {filtered.map((i) => (
               <tr key={i.id || i.name} className="border-t border-border/40 transition hover:bg-elevated/40">
-                <td className="px-5 py-4 font-medium">{i.name}</td>
-                <td className="px-5 py-4 text-muted-foreground">{i.cat}</td>
-                <td className="px-5 py-4 text-right font-semibold text-electric">R$ {i.price.toFixed(2)}</td>
-                <td className="px-5 py-4 text-right">{i.qty}</td>
-                <td className="px-5 py-4">
-                  <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${tone[i.level]}`}>
+                <td className="px-5 py-5 font-medium">{i.name}</td>
+                <td className="px-5 py-5 text-muted-foreground">{i.cat}</td>
+                <td className="px-5 py-5 text-right font-semibold text-electric">R$ {i.price.toFixed(2)}</td>
+                <td className="px-5 py-5 text-right">{i.qty}</td>
+                <td className="px-5 py-5">
+                  <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${tone[i.level]}`}>
                     {i.level}
                   </span>
                 </td>
-                <td className="px-5 py-4 text-center">
+                <td className="px-5 py-5 text-center">
                   <button 
                     onClick={() => openDiscountModal(i.id as string, i.name)}
-                    className="inline-flex items-center justify-center p-2 bg-destructive/10 text-destructive rounded-lg hover:bg-destructive/20 transition-colors"
+                    className="inline-flex items-center justify-center p-3 bg-destructive/10 text-destructive rounded-xl hover:bg-destructive/20 transition-colors"
                     title="Descontar Produto"
                   >
-                    <Minus className="w-4 h-4" />
+                    <Minus className="w-5 h-5" />
                   </button>
                 </td>
               </tr>
@@ -182,6 +182,45 @@ function Estoque() {
             )}
           </tbody>
         </table>
+      </div>
+
+      <div className="md:hidden space-y-4">
+        {filtered.map((i) => (
+          <div key={i.id || i.name} className="rounded-3xl border border-border/60 bg-surface/70 p-5 space-y-4 shadow-sm">
+            <div className="flex justify-between items-start gap-4">
+              <div className="min-w-0 flex-1">
+                <h3 className="font-bold text-lg leading-tight truncate">{i.name}</h3>
+                <p className="text-sm text-muted-foreground mt-1">{i.cat}</p>
+              </div>
+              <span className={`shrink-0 inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold ${tone[i.level]}`}>
+                {i.level}
+              </span>
+            </div>
+            
+            <div className="flex items-center justify-between pt-4 border-t border-border/40">
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-1">Preço</p>
+                <p className="font-bold text-electric text-lg">R$ {i.price.toFixed(2)}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider font-semibold mb-1 text-right">Qtd</p>
+                <p className="font-bold text-lg text-right">{i.qty}</p>
+              </div>
+              <button 
+                onClick={() => openDiscountModal(i.id as string, i.name)}
+                className="inline-flex items-center justify-center p-3.5 bg-destructive/10 text-destructive rounded-xl hover:bg-destructive/20 transition-colors active:scale-95"
+                title="Descontar Produto"
+              >
+                <Minus className="w-6 h-6" />
+              </button>
+            </div>
+          </div>
+        ))}
+        {filtered.length === 0 && (
+          <div className="py-12 text-center text-muted-foreground border border-border/60 rounded-3xl bg-surface/40">
+            Nenhum produto encontrado.
+          </div>
+        )}
       </div>
 
       {isModalOpen && (

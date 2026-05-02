@@ -16,7 +16,7 @@ export function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   const navigate = useNavigate();
 
   const handleLogout = () => {
-    localStorage.removeItem("isLoggedIn");
+    sessionStorage.removeItem("isLoggedIn");
     toast.info("Sessão encerrada.");
     navigate({ to: "/login" });
   };

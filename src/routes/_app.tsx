@@ -1,9 +1,8 @@
-import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AppSidebar } from "../components/app-sidebar";
 import { Topbar } from "../components/topbar";
 import { FAB } from "../components/FAB";
-import { motion } from "framer-motion";
 import { PenLine } from "lucide-react";
 
 export const Route = createFileRoute("/_app")({
@@ -11,34 +10,31 @@ export const Route = createFileRoute("/_app")({
 });
 
 function AppLayout() {
-  const navigate = useNavigate();
-  const [isAuthChecking, setIsAuthChecking] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [status, setStatus] = useState<"checking" | "authenticated" | "unauthenticated">("checking");
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    // Animação de progresso idêntica ao design original
-    const t = setInterval(() => setProgress((p) => Math.min(100, p + 4)), 50);
+    // Check auth synchronously first to avoid flashing
+    const isLogged = sessionStorage.getItem("isLoggedIn");
+    
+    if (isLogged === "true") {
+      // User is logged in — show a quick branded splash, then proceed
+      const t = setInterval(() => setProgress((p) => Math.min(100, p + 5)), 40);
+      const timer = setTimeout(() => {
+        setStatus("authenticated");
+        clearInterval(t);
+      }, 800);
+      return () => { clearInterval(t); clearTimeout(timer); };
+    } else {
+      // Not logged in — redirect immediately via hard navigation
+      // Using window.location prevents React unmounting crashes
+      window.location.replace("/login");
+      setStatus("unauthenticated");
+    }
+  }, []);
 
-    const checkAuth = async () => {
-      // Mantém o splash screen visível por um tempo mínimo para evitar "flashes"
-      // e respeitar o desejo de visualização do carregamento original.
-      await new Promise(resolve => setTimeout(resolve, 1200));
-      
-      const isLogged = sessionStorage.getItem("isLoggedIn");
-      if (isLogged !== "true") {
-        navigate({ to: "/login", replace: true });
-      } else {
-        setIsAuthenticated(true);
-      }
-      setIsAuthChecking(false);
-    };
-
-    checkAuth();
-    return () => clearInterval(t);
-  }, [navigate]);
-
-  if (isAuthChecking) {
+  // While checking or unauthenticated, show splash screen
+  if (status !== "authenticated") {
     return (
       <div className="relative flex min-h-screen items-center justify-center overflow-hidden gradient-animated">
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(15,23,42,0.7)_80%)]" />
@@ -88,9 +84,6 @@ function AppLayout() {
       </div>
     );
   }
-
-  // Se não estiver autenticado, não renderiza nada da dashboard
-  if (!isAuthenticated) return null;
 
   return (
     <div className="flex min-h-screen w-full bg-background text-foreground gradient-bg">

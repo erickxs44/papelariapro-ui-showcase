@@ -1,6 +1,5 @@
-import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+import { Link, useLocation } from "@tanstack/react-router";
 import { LayoutDashboard, ScanBarcode, Package, Settings, PenLine, ArrowLeftRight, ReceiptText, LogOut } from "lucide-react";
-import { toast } from "sonner";
 
 const items = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -13,12 +12,14 @@ const items = [
 
 export function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   const { pathname } = useLocation();
-  const navigate = useNavigate();
 
   const handleLogout = () => {
     sessionStorage.removeItem("isLoggedIn");
-    toast.info("Sessão encerrada.");
-    navigate({ to: "/login" });
+    // Use hard navigation to prevent React unmounting crashes.
+    // navigate({ to: "/login" }) would unmount _app children while
+    // they still hold references to the store context, causing
+    // "Cannot read properties of null" errors.
+    window.location.href = "/login";
   };
 
   return (

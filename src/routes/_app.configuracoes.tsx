@@ -79,31 +79,31 @@ function Configuracoes() {
 
       <section className="rounded-3xl border border-border/60 bg-surface/70 p-6 card-inset">
         <h2 className="mb-1 text-lg font-bold">Aparência</h2>
-        <p className="mb-5 text-xs text-muted-foreground">Alterne entre tema claro e escuro.</p>
+        <p className="mb-5 text-xs text-muted-foreground">Alterne entre o tema Azul Escuro e Preto OLED.</p>
 
         <div className="flex items-center justify-between rounded-2xl border border-border/60 bg-elevated/60 p-4">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 place-items-center rounded-2xl bg-electric/15 text-electric">
-              {theme === "dark" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+              {theme === "black" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
             </div>
             <div>
-              <p className="text-sm font-semibold capitalize">Tema {theme === "dark" ? "Escuro" : "Claro"}</p>
+              <p className="text-sm font-semibold capitalize">Tema {theme === "blue" ? "Azul Escuro" : "Preto OLED"}</p>
               <p className="text-xs text-muted-foreground">Clique para alternar</p>
             </div>
           </div>
           <button
             onClick={toggle}
             role="switch"
-            aria-checked={theme === "dark"}
+            aria-checked={theme === "black"}
             className={
               "relative h-7 w-12 rounded-full transition " +
-              (theme === "dark" ? "bg-gradient-to-r from-electric to-aqua" : "bg-muted")
+              (theme === "black" ? "bg-gradient-to-r from-electric to-aqua" : "bg-muted")
             }
           >
             <span
               className={
                 "absolute top-0.5 h-6 w-6 rounded-full bg-background shadow transition-all " +
-                (theme === "dark" ? "left-[22px]" : "left-0.5")
+                (theme === "black" ? "left-[22px]" : "left-0.5")
               }
             />
           </button>

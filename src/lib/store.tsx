@@ -651,6 +651,35 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
 export function useStore() {
   const ctx = useContext(StoreContext);
-  if (!ctx) throw new Error("useStore must be used within StoreProvider");
+  if (!ctx) {
+    // During route transitions (e.g. logout navigating from _app to /login),
+    // React may unmount _app children while they still call useStore().
+    // Instead of crashing, return safe defaults.
+    const noop = async () => {};
+    return {
+      items: [],
+      addStock: () => {},
+      checkout: noop,
+      xeroxCount: 0,
+      addExpense: noop,
+      addQuickSale: noop,
+      expenses: [],
+      sales: [],
+      fiados: [],
+      services: [],
+      quickProducts: [],
+      listasEscolares: [],
+      closeCashier: noop,
+      resetData: noop,
+      addFiado: noop,
+      addFiadoTransaction: noop,
+      payFiado: noop,
+      addService: () => {},
+      discountStock: noop,
+      addStockSale: noop,
+      getFiadoHistory: async () => [],
+      registrarMovimentacao: async () => null,
+    } as StoreContextType;
+  }
   return ctx;
 }

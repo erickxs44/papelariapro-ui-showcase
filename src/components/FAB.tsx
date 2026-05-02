@@ -51,7 +51,7 @@ export function FAB() {
 
   const openModal = (type: "venda" | "despesa") => {
     setModalType(type);
-    setDesc(type === "venda" ? "Vendas" : "");
+    setDesc(""); // Always start empty — user's input is the source of truth
     setVal("");
     setOpen(false);
   };
@@ -119,10 +119,11 @@ export function FAB() {
                 <label className="text-xs font-bold uppercase tracking-widest text-muted-foreground/60 ml-1">Descrição</label>
                 <input 
                   required 
+                  autoFocus
                   value={desc} 
                   onChange={e => setDesc(e.target.value)} 
                   className="w-full rounded-2xl border border-border/40 bg-elevated/50 px-5 py-4 text-lg focus:outline-none focus:ring-2 focus:ring-electric/50 transition-all" 
-                  placeholder={modalType === 'venda' ? "Ex: Venda rápida" : "Ex: Papel A4, Internet..."} 
+                  placeholder={modalType === 'venda' ? "Ex: impressões, canetas..." : "Ex: Papel A4, Internet..."} 
                 />
               </div>
               <div className="space-y-2">
@@ -131,7 +132,6 @@ export function FAB() {
                   <span className="absolute left-5 top-1/2 -translate-y-1/2 text-lg font-bold text-muted-foreground">R$</span>
                   <input 
                     required 
-                    autoFocus
                     value={val} 
                     onChange={e => setVal(e.target.value)} 
                     type="text" 

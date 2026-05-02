@@ -173,10 +173,10 @@ function Dashboard() {
       transition={{ duration: 0.4, ease: "easeOut" }}
       className="mx-auto max-w-7xl pb-12"
     >
-      <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
-        <div className="ml-2">
+      <div className="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div>
           <p className="text-sm font-medium text-aqua">Bem-vinda de volta, Ana 👋</p>
-          <h1 className="mt-1 text-3xl font-bold tracking-tight md:text-4xl glow-text">Resumo Financeiro</h1>
+          <h1 className="mt-1 text-3xl font-bold tracking-tight lg:text-4xl glow-text">Resumo Financeiro</h1>
         </div>
         <div className="flex items-center gap-3">
           <div className="relative">
@@ -209,31 +209,51 @@ function Dashboard() {
       </div>
 
       {/* Metrics Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
         <motion.div 
-          whileHover={{ y: -5 }}
-          className="rounded-3xl glass-card p-6 flex flex-col items-center justify-center text-center"
+          whileHover={{ y: -4 }}
+          transition={{ type: "spring", stiffness: 300 }}
+          className="rounded-3xl glass-card p-5 lg:p-6 flex flex-col"
         >
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Vendas</p>
-          <h2 className="text-3xl font-black text-white">R$ {salesTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</h2>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Vendas</p>
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-400/10 text-emerald-400">
+              <ArrowUpRight className="h-4 w-4" />
+            </div>
+          </div>
+          <h2 className="text-2xl lg:text-3xl font-black text-white">R$ {salesTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</h2>
+          <p className="text-xs text-muted-foreground mt-1">{filteredSales.length} transações</p>
         </motion.div>
-        
 
         <motion.div 
-          whileHover={{ y: -5 }}
-          className="rounded-3xl glass-card p-6 flex flex-col items-center justify-center text-center"
+          whileHover={{ y: -4 }}
+          transition={{ type: "spring", stiffness: 300 }}
+          className="rounded-3xl glass-card p-5 lg:p-6 flex flex-col"
         >
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Despesas</p>
-          <h2 className="text-3xl font-black text-destructive">- R$ {expensesTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</h2>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Despesas</p>
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-red-500/10 text-red-500">
+              <ArrowDownRight className="h-4 w-4" />
+            </div>
+          </div>
+          <h2 className="text-2xl lg:text-3xl font-black text-destructive">- R$ {expensesTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</h2>
+          <p className="text-xs text-muted-foreground mt-1">{filteredExpenses.length} lançamentos</p>
         </motion.div>
         
         <motion.div 
-          whileHover={{ y: -5, scale: 1.05 }}
-          className="rounded-3xl glass-neon p-6 flex flex-col items-center justify-center text-center relative overflow-hidden"
+          whileHover={{ y: -4, scale: 1.02 }}
+          transition={{ type: "spring", stiffness: 300 }}
+          className="rounded-3xl glass-neon p-5 lg:p-6 flex flex-col relative overflow-hidden"
         >
           <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-aqua opacity-30 blur-2xl"></div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-aqua mb-2 relative z-10">Lucro Real</p>
-          <h2 className="text-4xl font-black text-aqua relative z-10">R$ {lucroReal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</h2>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-aqua relative z-10">Lucro Real</p>
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-aqua/10 text-aqua relative z-10">
+              <DollarSign className="h-4 w-4" />
+            </div>
+          </div>
+          <h2 className="text-2xl lg:text-3xl font-black text-aqua relative z-10">R$ {lucroReal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</h2>
+          <p className="text-xs text-aqua/60 mt-1 relative z-10">Vendas − Despesas</p>
         </motion.div>
       </div>
 

@@ -124,7 +124,31 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     // Load movements from LocalStorage as priority for detailed reports
     const savedMovements = localStorage.getItem('papelaria_movements');
     if (savedMovements) {
-      setSales(JSON.parse(savedMovements));
+      try {
+        const parsed = JSON.parse(savedMovements);
+        if (Array.isArray(parsed)) {
+          setSales(parsed);
+        } else {
+          throw new Error('Not an array');
+        }
+      } catch {
+        // Corrupted data — clear and start fresh from Supabase
+        localStorage.removeItem('papelaria_movements');
+        const fetchSalesFromDB = async () => {
+          const { data, error } = await supabase.from('vendas').select('*');
+          if (!error && data) {
+            setSales(data.map((d: any) => ({
+              id: d.id,
+              clienteId: d.cliente_id,
+              value: d.valor_total,
+              date: d.data_venda,
+              type: d.metodo_pagamento?.includes('Fiado') ? 'Venda Fiada' : 'Venda',
+              description: d.descricao || d.metodo_pagamento || 'Venda PDV'
+            })));
+          }
+        };
+        fetchSalesFromDB();
+      }
     } else {
       // Fallback to Supabase if local is empty
       const fetchSalesFromDB = async () => {
@@ -330,7 +354,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   const addQuickSale = async (desc: string, value: number) => {
-    await registrarMovimentacao(new Date(), desc || 'Venda Rápida', value, "Venda", { metodo_pagamento: 'Dinheiro' });
+    // Use exactly what the user typed — no fallback overrides
+    await registrarMovimentacao(new Date(), desc, value, "Venda", { metodo_pagamento: 'Dinheiro' });
   };
 
   const addStockSale = async (itemName: string, value: number) => {
@@ -526,8 +551,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
 
       // 2. Limpeza de Persistência Local
+      // IMPORTANTE: Não limpar sessionStorage pois contém o token de autenticacao
       localStorage.clear();
-      sessionStorage.clear();
       localStorage.setItem('reset_performed', 'true');
 
       // 3. Reset de Estado (State)
@@ -540,7 +565,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setListasEscolares([]);
       setXeroxCount(0);
 
-      // 4. Recarregamento Total (Hard Refresh)
+      // 4. Recarregamento — vai para /login porque a sessão ainda está ativa
+      // User can log back in immediately
       setTimeout(() => {
         window.location.href = '/dashboard';
       }, 500);

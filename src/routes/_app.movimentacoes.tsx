@@ -31,95 +31,60 @@ function Movimentacoes() {
   const { items, sales, expenses } = useStore();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"Todas" | "Entradas" | "Saídas">("Todas");
-  const [movements, setMovements] = useState<Movement[]>([]);
-  const [loading, setLoading] = useState(true);
+  const movements = useMemo(() => {
+    const mSales: Movement[] = sales.map(s => {
+      let typeVal: "entrada" | "saida" = "entrada";
+      let category = "Venda";
+      let desc = s.description;
 
-  useEffect(() => {
-    const fetchData = async () => {
-      setLoading(true);
-      
-      // 1. Fetch Sales with items
-      const { data: salesData } = await supabase
-        .from('vendas')
-        .select(`
-          id,
-          valor_total,
-          data_venda,
-          metodo_pagamento,
-          descricao,
-          itens_venda (
-            quantidade,
-            produto_id
-          )
-        `)
-        .order('data_venda', { ascending: false })
-        .limit(100);
+      if (s.type === "Venda Fiada") {
+        category = "Fiado";
+        typeVal = "saida";
+      } else if (s.type === "Pagamento de Fiado") {
+        category = "Fiado Pagamento";
+        typeVal = "entrada";
+      }
 
-      // 2. Fetch Expenses
-      const { data: expData } = await supabase
-        .from('despesas')
-        .select('*')
-        .order('data_pagamento', { ascending: false })
-        .limit(100);
+      // Check for legacy description flags
+      if (desc.startsWith("Fiado:")) {
+         desc = `Venda ${desc.replace("Fiado: ", "")} - Pendente`;
+         category = "Fiado";
+         typeVal = "saida";
+      } else if (desc === "Fiado PDV") {
+         desc = "Venda PDV (Fiado) - Pendente";
+         category = "Fiado";
+         typeVal = "saida";
+      } else if (desc.startsWith("Baixa Fiado:")) {
+         desc = `Recebimento de Fiado: ${desc.replace("Baixa Fiado: ", "")}`;
+         category = "Fiado Pagamento";
+         typeVal = "entrada";
+      } else if (desc.startsWith("Estoque: ")) {
+         desc = `Venda (Estoque): ${desc.replace("Estoque: ", "")}`;
+         category = "Venda";
+         typeVal = "entrada";
+      }
 
-      const mSales: Movement[] = (salesData || []).map(s => {
-        const itemIds = (s.itens_venda as any[] || []).map(iv => iv.produto_id);
-        let desc = (s as any).descricao;
-        
-        if (!desc) {
-          const itemNames = itemIds.map(id => items.find(i => i.id === id)?.name).filter(Boolean);
-          desc = itemNames.length > 0 
-            ? `Venda: ${itemNames.slice(0, 2).join(", ")}${itemNames.length > 2 ? "..." : ""}`
-            : "Venda PDV";
-        }
-          
-        let typeVal: "entrada" | "saida" = "entrada";
-        let category = "Venda";
+      return {
+        id: s.id || `temp-${Math.random()}`,
+        type: typeVal,
+        date: new Date(s.date),
+        description: desc,
+        category: category,
+        value: s.value
+      };
+    });
 
-        if (s.metodo_pagamento && s.metodo_pagamento.startsWith("Fiado:")) {
-          desc = `Venda ${s.metodo_pagamento.replace("Fiado: ", "")} - Pendente`;
-          category = "Fiado";
-          typeVal = "saida"; // To make it orange in the UI logic we can use a special type or just keep it entrada and change color logic. Let's use "entrada" but add a special flag, or handle color in UI. Wait, we can't change type easily without changing Movement. Let's add a `isPending` or `metodo` to Movement.
-        } else if (s.metodo_pagamento === "Fiado PDV") {
-          desc = "Venda PDV (Fiado) - Pendente";
-          category = "Fiado";
-          typeVal = "saida"; // we'll use a specific logic for color based on category/type
-        } else if (s.metodo_pagamento && s.metodo_pagamento.startsWith("Baixa Fiado:")) {
-          desc = `Recebimento de Fiado: ${s.metodo_pagamento.replace("Baixa Fiado: ", "")}`;
-          category = "Fiado Pagamento";
-          typeVal = "entrada";
-        } else if (s.metodo_pagamento && s.metodo_pagamento.startsWith("Estoque: ")) {
-          desc = `Venda (Estoque): ${s.metodo_pagamento.replace("Estoque: ", "")}`;
-          category = "Venda";
-          typeVal = "entrada";
-        }
-          
-        return {
-          id: `v-${s.id}`,
-          type: typeVal,
-          date: new Date(s.data_venda),
-          description: desc,
-          category: category,
-          value: s.valor_total
-        };
-      });
+    const mExps: Movement[] = expenses.map((e, idx) => ({
+      id: `e-${idx}`,
+      type: "saida",
+      date: new Date(e.date),
+      description: e.desc,
+      category: "Geral",
+      value: e.value
+    }));
 
-      const mExps: Movement[] = (expData || []).map(e => ({
-        id: `e-${e.id}`,
-        type: "saida",
-        date: new Date(e.data_pagamento),
-        description: e.descricao,
-        category: e.categoria || "Geral",
-        value: e.valor
-      }));
-
-      const combined = [...mSales, ...mExps].sort((a, b) => b.date.getTime() - a.date.getTime());
-      setMovements(combined);
-      setLoading(false);
-    };
-
-    fetchData();
-  }, [items, sales, expenses]);
+    return [...mSales, ...mExps].sort((a, b) => b.date.getTime() - a.date.getTime());
+  }, [sales, expenses]);
 
   const filteredData = useMemo(() => {
     return movements.filter(m => {
@@ -177,7 +142,7 @@ function Movimentacoes() {
 
         {/* Unified Clean List */}
         <div className="space-y-0 max-h-[650px] overflow-y-auto custom-scrollbar pr-2">
-          {loading ? (
+          {movements.length === 0 && sales.length === 0 && expenses.length === 0 ? (
              Array.from({ length: 8 }).map((_, i) => (
                <div key={i} className="animate-pulse flex items-center px-2 py-4 border-b border-border/10">
                   <div className="w-11 flex-shrink-0"><div className="h-3 w-8 rounded bg-white/5" /></div>

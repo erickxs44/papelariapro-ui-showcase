@@ -45,6 +45,13 @@ type StoreContextType = {
   discountStock: (itemId: string, qtyToDiscount: number) => Promise<void>;
   addStockSale: (itemName: string, value: number) => Promise<void>;
   getFiadoHistory: (fiadoId: string) => Promise<any[]>;
+  registrarMovimentacao: (
+    data: Date,
+    descricao: string,
+    valor: number,
+    tipo: "Entrada" | "Saída" | "Venda" | "Venda Fiada" | "Pagamento de Fiado",
+    detalhes?: { metodo_pagamento?: string, cliente_id?: string, categoria?: string }
+  ) => Promise<string | null>;
 };
 
 export function calculateLevel(qty: number): Item["level"] {
@@ -129,7 +136,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             value: d.valor_total,
             date: d.data_venda,
             type: d.metodo_pagamento?.includes('Fiado') ? 'Venda Fiada' : 'Venda',
-            description: d.metodo_pagamento || 'Venda PDV'
+            description: d.descricao || d.metodo_pagamento || 'Venda PDV'
           })));
         }
       };
@@ -166,6 +173,55 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       ]);
     }
   }, []);
+
+  const registrarMovimentacao = async (
+    data: Date,
+    descricao: string,
+    valor: number,
+    tipo: "Entrada" | "Saída" | "Venda" | "Venda Fiada" | "Pagamento de Fiado",
+    detalhes: { metodo_pagamento?: string, cliente_id?: string, categoria?: string } = {}
+  ): Promise<string | null> => {
+    // 1. Atualização de Estado Reativa OBRIGATÓRIA (sem delay)
+    if (tipo === "Saída") {
+      setExpenses(prev => [{ desc: descricao, value: valor, date: data }, ...prev]);
+    } else {
+      const newMove: Movement = {
+        id: crypto.randomUUID(),
+        clienteId: detalhes.cliente_id,
+        type: tipo,
+        description: descricao,
+        value: valor,
+        date: data.toISOString()
+      };
+      setSales(prev => {
+        const next = [newMove, ...prev];
+        localStorage.setItem('papelaria_movements', JSON.stringify(next));
+        return next;
+      });
+    }
+
+    // 2. Persistência Atômica no Banco
+    let returnId = null;
+    if (tipo === "Saída") {
+      const { data: res } = await supabase.from('despesas').insert({
+        descricao,
+        valor,
+        categoria: detalhes.categoria || 'Geral',
+        data_pagamento: data.toISOString()
+      }).select();
+      if (res) returnId = res[0]?.id;
+    } else {
+      const { data: res } = await supabase.from('vendas').insert({
+        valor_total: valor,
+        metodo_pagamento: detalhes.metodo_pagamento || "Dinheiro",
+        descricao: descricao,
+        data_venda: data.toISOString(),
+        cliente_id: detalhes.cliente_id
+      }).select();
+      if (res) returnId = res[0]?.id;
+    }
+    return returnId;
+  };
 
   const addStock = async (item: Item) => {
     // Add optimistically without ID
@@ -218,18 +274,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           tipo: 'Compra',
           data: new Date().toISOString()
         });
-
-        // Record in LocalStorage movements
-        const newMove: Movement = {
-          clienteId: fiadoId,
-          type: "Venda Fiada",
-          description: `Compra PDV: ${cart.map(i => i.name).join(', ')}`,
-          value: total,
-          date: new Date().toISOString()
-        };
-        const updatedSales = [newMove, ...sales];
-        setSales(updatedSales);
-        localStorage.setItem('papelaria_movements', JSON.stringify(updatedSales));
       }
     }
 
@@ -243,8 +287,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         return item;
       })
     );
-    // Optimistic sales append:
-    setSales(prev => [{ value: total, date: new Date() }, ...prev]);
 
     const xeroxPAndB = cart.find(c => c.name === "Xerox P&B");
     const xeroxColor = cart.find(c => c.name === "Xerox Color");
@@ -254,16 +296,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (xeroxColor) addedXerox += xeroxColor.qty;
     if (addedXerox > 0) setXeroxCount(prev => prev + addedXerox);
 
-    const { data: vendaData, error: vendaError } = await supabase.from('vendas').insert({
-      valor_total: total,
-      metodo_pagamento: paymentMethod,
-      descricao: cart.map(i => i.name).join(', '),
-      data_venda: new Date().toISOString(),
-      cliente_id: fiadoId
-    }).select();
+    const vendaId = await registrarMovimentacao(
+      new Date(),
+      cart.map(i => i.name).join(', '),
+      total,
+      fiadoId && paymentMethod === "Fiado PDV" ? "Venda Fiada" : "Venda",
+      { metodo_pagamento: paymentMethod, cliente_id: fiadoId }
+    );
 
-    if (!vendaError && vendaData && vendaData.length > 0) {
-      const vendaId = vendaData[0].id;
+    if (vendaId) {
       for (const cartItem of cart) {
         if (cartItem.id) {
           await supabase.from('itens_venda').insert({
@@ -285,51 +326,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   const addExpense = async (desc: string, value: number) => {
-    setExpenses(prev => [{ desc, value, date: new Date() }, ...prev]);
-    await supabase.from('despesas').insert({
-      descricao: desc,
-      valor: value,
-      categoria: 'Geral',
-      data_pagamento: new Date().toISOString()
-    });
+    await registrarMovimentacao(new Date(), desc, value, "Saída", { categoria: 'Geral' });
   };
 
   const addQuickSale = async (desc: string, value: number) => {
-    const newMove: Movement = {
-      type: "Venda",
-      description: desc || 'Venda Rápida',
-      value: value,
-      date: new Date().toISOString()
-    };
-    const updatedSales = [newMove, ...sales];
-    setSales(updatedSales);
-    localStorage.setItem('papelaria_movements', JSON.stringify(updatedSales));
-
-    await supabase.from('vendas').insert({
-      valor_total: value,
-      metodo_pagamento: 'Dinheiro',
-      descricao: desc || 'Venda Rápida',
-      data_venda: new Date().toISOString()
-    });
+    await registrarMovimentacao(new Date(), desc || 'Venda Rápida', value, "Venda", { metodo_pagamento: 'Dinheiro' });
   };
 
   const addStockSale = async (itemName: string, value: number) => {
-    const newMove: Movement = {
-      type: "Venda",
-      description: `Estoque: ${itemName}`,
-      value: value,
-      date: new Date().toISOString()
-    };
-    const updatedSales = [newMove, ...sales];
-    setSales(updatedSales);
-    localStorage.setItem('papelaria_movements', JSON.stringify(updatedSales));
-
-    await supabase.from('vendas').insert({
-      valor_total: value,
-      metodo_pagamento: `Estoque: ${itemName}`,
-      descricao: `Estoque: ${itemName}`,
-      data_venda: new Date().toISOString()
-    });
+    await registrarMovimentacao(new Date(), `Estoque: ${itemName}`, value, "Venda", { metodo_pagamento: `Estoque: ${itemName}` });
   };
 
   const addFiado = async (fiado: any) => {
@@ -564,25 +569,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       data: new Date().toISOString()
     });
 
-    // Add to LocalStorage movements
-    const newMove: Movement = {
-      clienteId: fiadoId,
-      type: "Venda Fiada",
-      description: `Compra: ${desc}`,
-      value: amount,
-      date: new Date().toISOString()
-    };
-    const updatedSales = [newMove, ...sales];
-    setSales(updatedSales);
-    localStorage.setItem('papelaria_movements', JSON.stringify(updatedSales));
-
-    // Add to vendas as pending (Supabase)
-    await supabase.from('vendas').insert({
-      valor_total: amount,
-      metodo_pagamento: `Fiado: ${desc}`,
-      data_venda: new Date().toISOString(),
-      cliente_id: fiadoId
-    });
+    // Add to vendas as pending (Supabase) and local states
+    await registrarMovimentacao(new Date(), desc, amount, "Venda Fiada", { metodo_pagamento: `Fiado: ${desc}`, cliente_id: fiadoId });
   };
 
   const payFiado = async (fiadoId: string, amount: number) => {
@@ -603,25 +591,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       data: new Date().toISOString()
     });
 
-    // Add to LocalStorage movements
-    const newMove: Movement = {
-      clienteId: fiadoId,
-      type: "Pagamento de Fiado",
-      description: `Pagamento Realizado`,
-      value: amount,
-      date: new Date().toISOString()
-    };
-    const updatedSales = [newMove, ...sales];
-    setSales(updatedSales);
-    localStorage.setItem('papelaria_movements', JSON.stringify(updatedSales));
-
-    // Add to vendas as green (Baixa) (Supabase)
-    await supabase.from('vendas').insert({
-      valor_total: amount,
-      metodo_pagamento: `Baixa Fiado: ${fiado.name}`,
-      data_venda: new Date().toISOString(),
-      cliente_id: fiadoId
-    });
+    // Add to vendas as green (Baixa) and local states
+    await registrarMovimentacao(new Date(), `Pagamento Realizado`, amount, "Pagamento de Fiado", { metodo_pagamento: `Baixa Fiado: ${fiado.name}`, cliente_id: fiadoId });
   };
 
   const getFiadoHistory = async (fiadoId: string) => {
@@ -645,7 +616,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       items, addStock, checkout, xeroxCount, addExpense, addQuickSale, 
       expenses, sales, fiados, services, quickProducts, listasEscolares,
       closeCashier, resetData, addFiado, addService, discountStock,
-      addFiadoTransaction, payFiado, addStockSale, getFiadoHistory
+      addFiadoTransaction, payFiado, addStockSale, getFiadoHistory, registrarMovimentacao
     }}>
       {children}
     </StoreContext.Provider>

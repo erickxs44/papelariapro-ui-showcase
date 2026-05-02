@@ -45,42 +45,33 @@ function Dashboard() {
   
   useEffect(() => {
     const fetchTopProducts = async () => {
-      const now = new Date();
-      const start = new Date(now);
-      start.setDate(now.getDate() - 7);
-      
-      const { data, error } = await supabase
-        .from('itens_venda')
-        .select(`
-          quantidade,
-          preco_unitario,
-          produtos (nome)
-        `)
-        .gte('vendas.data_venda', start.toISOString()); // This join might need a different syntax depending on Supabase relations
-
-      // Simpler approach: fetch all and group if join is tricky, 
-      // but let's try to aggregate by product name/id
-      const { data: rawData } = await supabase.from('itens_venda').select('quantidade, preco_unitario, produto_id').limit(100);
-      
-      if (rawData) {
-        const stats: Record<string, { qty: number; price: number; name: string }> = {};
-        for (const row of rawData) {
-          const prod = items.find(i => i.id === row.produto_id);
-          const name = prod?.name || "Produto Desconhecido";
-          if (!stats[name]) stats[name] = { qty: 0, price: row.preco_unitario, name };
-          stats[name].qty += row.quantidade;
+      try {
+        const { data: rawData } = await supabase.from('itens_venda').select('quantidade, preco_unitario, produto_id').limit(100);
+        
+        if (rawData) {
+          const stats: Record<string, { qty: number; price: number; name: string }> = {};
+          for (const row of rawData) {
+            const prod = items.find(i => i.id === row.produto_id);
+            const name = prod?.name || "Produto Desconhecido";
+            if (!stats[name]) stats[name] = { qty: 0, price: row.preco_unitario ?? 0, name };
+            stats[name].qty += row.quantidade ?? 0;
+          }
+          const sorted = Object.values(stats).sort((a, b) => b.qty - a.qty).slice(0, 10);
+          setDbTopProducts(sorted);
         }
-        const sorted = Object.values(stats).sort((a, b) => b.qty - a.qty).slice(0, 10);
-        setDbTopProducts(sorted);
+      } catch (e) {
+        console.warn('Erro ao carregar top produtos:', e);
       }
     };
     fetchTopProducts();
   }, [items]);
 
   const recentMovements = useMemo(() => {
+    const safeSales = Array.isArray(sales) ? sales : [];
+    const safeExpenses = Array.isArray(expenses) ? expenses : [];
     const mvs = [
-      ...sales.map(s => ({ type: "venda" as const, title: s.description || "Venda realizada", value: s.value, date: new Date(s.date) })),
-      ...expenses.map(e => ({ type: "despesa" as const, title: e.desc, value: e.value, date: new Date(e.date) }))
+      ...safeSales.map(s => ({ type: "venda" as const, title: (s?.description || '').trim() || "Venda realizada", value: s?.value ?? 0, date: new Date(s?.date || Date.now()) })),
+      ...safeExpenses.map(e => ({ type: "despesa" as const, title: (e?.desc || '').trim() || "Despesa", value: e?.value ?? 0, date: new Date(e?.date || Date.now()) }))
     ].sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 10);
     return mvs;
   }, [sales, expenses]);
@@ -100,11 +91,11 @@ function Dashboard() {
     return start;
   }, [period]);
 
-  const filteredSales = useMemo(() => sales.filter(s => new Date(s.date) >= startDate), [sales, startDate]);
-  const filteredExpenses = useMemo(() => expenses.filter(e => new Date(e.date) >= startDate), [expenses, startDate]);
+  const filteredSales = useMemo(() => (Array.isArray(sales) ? sales : []).filter(s => new Date(s?.date || 0) >= startDate), [sales, startDate]);
+  const filteredExpenses = useMemo(() => (Array.isArray(expenses) ? expenses : []).filter(e => new Date(e?.date || 0) >= startDate), [expenses, startDate]);
 
-  const salesTotal = filteredSales.reduce((s, e) => s + e.value, 0);
-  const expensesTotal = filteredExpenses.reduce((s, e) => s + e.value, 0);
+  const salesTotal = filteredSales.reduce((s, e) => s + (e?.value ?? 0), 0);
+  const expensesTotal = filteredExpenses.reduce((s, e) => s + (e?.value ?? 0), 0);
   const lucroReal = salesTotal - expensesTotal;
 
   const chartData = useMemo(() => {

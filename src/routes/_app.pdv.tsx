@@ -117,18 +117,13 @@ function Pdv() {
   const processCheckout = async (method: string, fiadoId?: string) => {
     setIsSubmitting(true);
     try {
-      await toast.promise(
-        async () => {
-          await checkout(cart, method, fiadoId);
-          setCart([]);
-          if (fiadoId) setIsFiadoModalOpen(false);
-        },
-        {
-          loading: 'Salvando venda...',
-          success: 'Venda realizada com sucesso!',
-          error: 'Erro ao salvar venda.',
-        }
-      );
+      await checkout(cart, method, fiadoId);
+      setCart([]);
+      if (fiadoId) setIsFiadoModalOpen(false);
+      toast.success('Venda realizada com sucesso!');
+    } catch (e) {
+      console.warn('Erro no checkout:', e);
+      toast.error('Erro ao salvar venda.');
     } finally {
       setIsSubmitting(false);
     }

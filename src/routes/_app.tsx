@@ -3,10 +3,51 @@ import { useEffect, useState } from "react";
 import { AppSidebar } from "../components/app-sidebar";
 import { Topbar } from "../components/topbar";
 import { FAB } from "../components/FAB";
-import { PenLine } from "lucide-react";
+import { PenLine, AlertTriangle, RefreshCw } from "lucide-react";
+
+/**
+ * Per-route error boundary — catches crashes inside child pages (PDV, Estoque, etc.)
+ * and shows a discrete inline message INSTEAD of nuking the entire screen.
+ */
+function InlineErrorFallback({ error, reset }: { error: Error; reset: () => void }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-24 px-6 text-center gap-6">
+      <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/10">
+        <AlertTriangle className="h-8 w-8 text-amber-400" />
+      </div>
+      <div>
+        <h2 className="text-xl font-bold text-foreground">Ops, algo deu errado nesta aba</h2>
+        <p className="mt-2 text-sm text-muted-foreground max-w-md">
+          Essa seção encontrou um erro, mas o restante do sistema continua funcionando. Tente recarregar a aba ou volte ao Dashboard.
+        </p>
+        {import.meta.env.DEV && error?.message && (
+          <pre className="mt-4 max-h-32 overflow-auto rounded-xl bg-muted p-3 text-left font-mono text-xs text-destructive mx-auto max-w-lg">
+            {error.message}
+          </pre>
+        )}
+      </div>
+      <div className="flex gap-3">
+        <button
+          onClick={() => { try { reset(); } catch { window.location.reload(); } }}
+          className="inline-flex items-center gap-2 rounded-2xl bg-electric px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-electric/30 transition hover:bg-electric/90"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Tentar novamente
+        </button>
+        <a
+          href="/dashboard"
+          className="inline-flex items-center gap-2 rounded-2xl border border-border/60 bg-surface px-5 py-2.5 text-sm font-bold text-foreground transition hover:bg-elevated"
+        >
+          Ir ao Dashboard
+        </a>
+      </div>
+    </div>
+  );
+}
 
 export const Route = createFileRoute("/_app")({
   component: AppLayout,
+  errorComponent: InlineErrorFallback,
 });
 
 function AppLayout() {

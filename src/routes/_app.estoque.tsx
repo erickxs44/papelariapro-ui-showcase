@@ -60,6 +60,9 @@ function Estoque() {
       setNewPrice("");
       setNewQty("");
       toast.success("Produto cadastrado!");
+    } catch (e) {
+      console.warn("Erro ao adicionar produto:", e);
+      toast.error("Erro ao cadastrar produto.");
     } finally {
       setIsSubmitting(false);
     }
@@ -105,6 +108,9 @@ function Estoque() {
       setIsConfirmingIntegration(false);
       setIsDiscountModalOpen(false);
       toast.success(`${qtyNum} unidades descontadas de ${discountItemName}!`);
+    } catch (e) {
+      console.warn("Erro ao descontar estoque:", e);
+      toast.error("Erro ao descontar estoque.");
     } finally {
       setIsSubmitting(false);
     }

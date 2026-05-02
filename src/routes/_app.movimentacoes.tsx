@@ -32,15 +32,18 @@ function Movimentacoes() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"Todas" | "Entradas" | "Saídas">("Todas");
   const movements = useMemo(() => {
-    const mSales: Movement[] = sales.map(s => {
+    const safeSales = Array.isArray(sales) ? sales : [];
+    const safeExpenses = Array.isArray(expenses) ? expenses : [];
+
+    const mSales: Movement[] = safeSales.map(s => {
       let typeVal: "entrada" | "saida" = "entrada";
       let category = "Venda";
-      let desc = s.description;
+      let desc = (s?.description || '').trim() || 'Venda';
 
-      if (s.type === "Venda Fiada") {
+      if (s?.type === "Venda Fiada") {
         category = "Fiado";
         typeVal = "saida";
-      } else if (s.type === "Pagamento de Fiado") {
+      } else if (s?.type === "Pagamento de Fiado") {
         category = "Fiado Pagamento";
         typeVal = "entrada";
       }
@@ -65,34 +68,34 @@ function Movimentacoes() {
       }
 
       return {
-        id: s.id || `temp-${Math.random()}`,
+        id: s?.id || `temp-${Math.random()}`,
         type: typeVal,
-        date: new Date(s.date),
+        date: new Date(s?.date || Date.now()),
         description: desc,
         category: category,
-        value: s.value
+        value: s?.value ?? 0
       };
     });
 
-    const mExps: Movement[] = expenses.map((e, idx) => ({
+    const mExps: Movement[] = safeExpenses.map((e, idx) => ({
       id: `e-${idx}`,
-      type: "saida",
-      date: new Date(e.date),
-      description: e.desc,
+      type: "saida" as const,
+      date: new Date(e?.date || Date.now()),
+      description: (e?.desc || '').trim() || 'Despesa',
       category: "Geral",
-      value: e.value
+      value: e?.value ?? 0
     }));
 
     return [...mSales, ...mExps].sort((a, b) => b.date.getTime() - a.date.getTime());
   }, [sales, expenses]);
 
   const filteredData = useMemo(() => {
-    return movements.filter(m => {
-      const matchSearch = m.description.toLowerCase().includes(search.toLowerCase()) || 
-                          m.category.toLowerCase().includes(search.toLowerCase());
+    return (Array.isArray(movements) ? movements : []).filter(m => {
+      const matchSearch = (m?.description || '').toLowerCase().includes(search.toLowerCase()) || 
+                          (m?.category || '').toLowerCase().includes(search.toLowerCase());
       const matchFilter = filter === "Todas" || 
-                          (filter === "Entradas" && m.type === "entrada") ||
-                          (filter === "Saídas" && m.type === "saida");
+                          (filter === "Entradas" && m?.type === "entrada") ||
+                          (filter === "Saídas" && m?.type === "saida");
       return matchSearch && matchFilter;
     });
   }, [movements, search, filter]);

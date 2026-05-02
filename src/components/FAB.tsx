@@ -24,6 +24,11 @@ export function FAB() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const trimmedDesc = desc.trim();
+    if (!trimmedDesc) {
+      toast.error("Por favor, preencha a descrição.");
+      return;
+    }
     const numericValue = parseFloat(val.replace(",", "."));
     if (isNaN(numericValue) || numericValue <= 0) {
       toast.error("Por favor, insira um valor válido.");
@@ -33,10 +38,11 @@ export function FAB() {
     setIsSubmitting(true);
     try {
       if (modalType === "venda") {
-        await addQuickSale(desc || "Vendas", numericValue);
+        // Use EXACTLY what the user typed — never override with hardcoded text
+        await addQuickSale(trimmedDesc, numericValue);
         toast.success("Venda registrada com sucesso!");
       } else {
-        await addExpense(desc, numericValue);
+        await addExpense(trimmedDesc, numericValue);
         toast.success("Despesa registrada com sucesso!");
       }
 
@@ -44,6 +50,9 @@ export function FAB() {
       setDesc("");
       setVal("");
       setOpen(false);
+    } catch (e) {
+      console.warn("Erro na operação rápida:", e);
+      toast.error(`Erro ao registrar ${modalType}.`);
     } finally {
       setIsSubmitting(false);
     }

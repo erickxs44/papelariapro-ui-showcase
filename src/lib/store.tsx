@@ -77,43 +77,56 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const fetchProducts = async () => {
-      const { data, error } = await supabase.from('produtos').select('*');
-      if (!error && data) {
-        const loadedItems: Item[] = data.map((d: any) => ({
-          id: d.id,
-          name: d.nome,
-          cat: "Escolar",
-          costPrice: d.preco_custo,
-          price: d.preco_venda,
-          qty: d.estoque_atual,
-          level: calculateLevel(d.estoque_atual)
-        }));
-        setItems(loadedItems);
+      try {
+        const { data, error } = await supabase.from('produtos').select('*');
+        if (!error && data) {
+          const loadedItems: Item[] = data.map((d: any) => ({
+            id: d.id,
+            name: d.nome,
+            cat: "Escolar" as const,
+            costPrice: d.preco_custo ?? 0,
+            price: d.preco_venda ?? 0,
+            qty: d.estoque_atual ?? 0,
+            level: calculateLevel(d.estoque_atual ?? 0)
+          }));
+          setItems(loadedItems);
+        }
+      } catch (e) {
+        console.warn('Erro ao carregar produtos:', e);
       }
     };
 
     const fetchExpenses = async () => {
-      const { data, error } = await supabase.from('despesas').select('*');
-      if (!error && data) {
-        setExpenses(data.map((d: any) => ({
-          desc: d.descricao,
-          value: d.valor,
-          date: new Date(d.data_pagamento)
-        })));
+      try {
+        const { data, error } = await supabase.from('despesas').select('*');
+        if (!error && data) {
+          setExpenses(data.map((d: any) => ({
+            desc: d.descricao || 'Sem descrição',
+            value: d.valor ?? 0,
+            date: new Date(d.data_pagamento || Date.now())
+          })));
+        }
+      } catch (e) {
+        console.warn('Erro ao carregar despesas:', e);
       }
     };
 
     const fetchFiados = async () => {
-      const { data, error } = await supabase.from('fiados').select('*');
-      if (!error && data) {
-        setFiados(data.map((d: any) => ({
-          id: d.id,
-          name: d.nome,
-          phone: d.telefone,
-          amount: d.valor,
-          dueDate: new Date(d.data_vencimento),
-          status: d.status
-        })));
+      try {
+        const { data, error } = await supabase.from('fiados').select('*');
+        if (!error && data) {
+          setFiados(data.map((d: any) => ({
+            id: d.id,
+            name: d.nome || 'Cliente',
+            phone: d.telefone || '',
+            amount: d.valor ?? 0,
+            dueDate: new Date(d.data_vencimento || Date.now()),
+            status: d.status || 'Pendente'
+          })));
+        }
+      } catch (e) {
+        // Table might not exist — that's OK
+        console.warn('Tabela fiados não encontrada:', e);
       }
     };
 
@@ -127,7 +140,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       try {
         const parsed = JSON.parse(savedMovements);
         if (Array.isArray(parsed)) {
-          setSales(parsed);
+          // Sanitize each item — reject malformed entries instead of crashing
+          const sanitized = parsed.filter((m: any) => m && typeof m === 'object' && typeof m.value === 'number').map((m: any) => ({
+            ...m,
+            description: (m.description || '').trim() || 'Sem descrição',
+            value: m.value ?? 0,
+            date: m.date || new Date().toISOString(),
+          }));
+          setSales(sanitized);
         } else {
           throw new Error('Not an array');
         }
@@ -135,16 +155,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         // Corrupted data — clear and start fresh from Supabase
         localStorage.removeItem('papelaria_movements');
         const fetchSalesFromDB = async () => {
-          const { data, error } = await supabase.from('vendas').select('*');
-          if (!error && data) {
-            setSales(data.map((d: any) => ({
-              id: d.id,
-              clienteId: d.cliente_id,
-              value: d.valor_total,
-              date: d.data_venda,
-              type: d.metodo_pagamento?.includes('Fiado') ? 'Venda Fiada' : 'Venda',
-              description: d.descricao || d.metodo_pagamento || 'Venda PDV'
-            })));
+          try {
+            const { data, error } = await supabase.from('vendas').select('*');
+            if (!error && Array.isArray(data)) {
+              setSales(data.map((d: any) => ({
+                id: d.id,
+                clienteId: d.cliente_id,
+                value: d.valor_total ?? 0,
+                date: d.data_venda || new Date().toISOString(),
+                type: d.metodo_pagamento?.includes('Fiado') ? 'Venda Fiada' as const : 'Venda' as const,
+                description: (d.descricao || '').trim() || 'Venda PDV'
+              })));
+            }
+          } catch (e) {
+            console.warn('Erro ao carregar vendas do Supabase:', e);
           }
         };
         fetchSalesFromDB();
@@ -152,16 +176,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     } else {
       // Fallback to Supabase if local is empty
       const fetchSalesFromDB = async () => {
-        const { data, error } = await supabase.from('vendas').select('*');
-        if (!error && data) {
-          setSales(data.map((d: any) => ({
-            id: d.id,
-            clienteId: d.cliente_id,
-            value: d.valor_total,
-            date: d.data_venda,
-            type: d.metodo_pagamento?.includes('Fiado') ? 'Venda Fiada' : 'Venda',
-            description: d.descricao || d.metodo_pagamento || 'Venda PDV'
-          })));
+        try {
+          const { data, error } = await supabase.from('vendas').select('*');
+          if (!error && Array.isArray(data)) {
+            setSales(data.map((d: any) => ({
+              id: d.id,
+              clienteId: d.cliente_id,
+              value: d.valor_total ?? 0,
+              date: d.data_venda || new Date().toISOString(),
+              type: d.metodo_pagamento?.includes('Fiado') ? 'Venda Fiada' as const : 'Venda' as const,
+              description: (d.descricao || '').trim() || 'Venda PDV'
+            })));
+          }
+        } catch (e) {
+          console.warn('Erro ao carregar vendas do Supabase:', e);
         }
       };
       fetchSalesFromDB();
@@ -205,44 +233,52 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     tipo: "Entrada" | "Saída" | "Venda" | "Venda Fiada" | "Pagamento de Fiado",
     detalhes: { metodo_pagamento?: string, cliente_id?: string, categoria?: string } = {}
   ): Promise<string | null> => {
+    // CRITICAL: Use the exact user-provided description — never override
+    const safeDesc = (descricao || '').trim() || 'Sem descrição';
+
     // 1. Atualização de Estado Reativa OBRIGATÓRIA (sem delay)
     if (tipo === "Saída") {
-      setExpenses(prev => [{ desc: descricao, value: valor, date: data }, ...prev]);
+      setExpenses(prev => [{ desc: safeDesc, value: valor, date: data }, ...prev]);
     } else {
       const newMove: Movement = {
         id: crypto.randomUUID(),
         clienteId: detalhes.cliente_id,
         type: tipo,
-        description: descricao,
+        description: safeDesc,
         value: valor,
         date: data.toISOString()
       };
       setSales(prev => {
         const next = [newMove, ...prev];
-        localStorage.setItem('papelaria_movements', JSON.stringify(next));
+        try { localStorage.setItem('papelaria_movements', JSON.stringify(next)); } catch {}
         return next;
       });
     }
 
-    // 2. Persistência Atômica no Banco
+    // 2. Persistência Atômica no Banco (wrapped in try/catch)
     let returnId = null;
-    if (tipo === "Saída") {
-      const { data: res } = await supabase.from('despesas').insert({
-        descricao,
-        valor,
-        categoria: detalhes.categoria || 'Geral',
-        data_pagamento: data.toISOString()
-      }).select();
-      if (res) returnId = res[0]?.id;
-    } else {
-      const { data: res } = await supabase.from('vendas').insert({
-        valor_total: valor,
-        metodo_pagamento: detalhes.metodo_pagamento || "Dinheiro",
-        descricao: descricao,
-        data_venda: data.toISOString(),
-        cliente_id: detalhes.cliente_id
-      }).select();
-      if (res) returnId = res[0]?.id;
+    try {
+      if (tipo === "Saída") {
+        const { data: res } = await supabase.from('despesas').insert({
+          descricao: safeDesc,
+          valor,
+          categoria: detalhes.categoria || 'Geral',
+          data_pagamento: data.toISOString()
+        }).select();
+        if (res) returnId = res[0]?.id;
+      } else {
+        const { data: res } = await supabase.from('vendas').insert({
+          valor_total: valor,
+          metodo_pagamento: detalhes.metodo_pagamento || "Dinheiro",
+          descricao: safeDesc,
+          data_venda: data.toISOString(),
+          cliente_id: detalhes.cliente_id || null
+        }).select();
+        if (res) returnId = res[0]?.id;
+      }
+    } catch (e) {
+      console.warn('Erro ao persistir no Supabase:', e);
+      // State was already updated optimistically, so the UI still works
     }
     return returnId;
   };
@@ -251,17 +287,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     // Add optimistically without ID
     setItems((prev) => [item, ...prev]);
 
-    const { data, error } = await supabase.from('produtos').insert({
-      nome: item.name,
-      preco_custo: item.costPrice,
-      preco_venda: item.price,
-      estoque_atual: item.qty,
-      estoque_minimo: 5
-    }).select();
+    try {
+      const { data, error } = await supabase.from('produtos').insert({
+        nome: item.name,
+        preco_custo: item.costPrice,
+        preco_venda: item.price,
+        estoque_atual: item.qty,
+        estoque_minimo: 5
+      }).select();
 
-    if (!error && data) {
-      const newD = data[0];
-      setItems((prev) => prev.map(i => i.name === item.name && !i.id ? { ...i, id: newD.id } : i));
+      if (!error && data) {
+        const newD = data[0];
+        setItems((prev) => prev.map(i => i.name === item.name && !i.id ? { ...i, id: newD.id } : i));
+      }
+    } catch (e) {
+      console.warn('Erro ao salvar produto no Supabase:', e);
     }
   };
 
@@ -277,27 +317,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     );
 
     // Update DB
-    await supabase.from('produtos').update({ estoque_atual: newQty }).eq('id', itemId);
+    try {
+      await supabase.from('produtos').update({ estoque_atual: newQty }).eq('id', itemId);
+    } catch (e) {
+      console.warn('Erro ao atualizar estoque:', e);
+    }
   };
 
   const checkout = async (cart: { id?: string; name: string; qty: number; price: number }[], paymentMethod: string = "Dinheiro", fiadoId?: string) => {
-    const total = cart.reduce((s, i) => s + i.price * i.qty, 0);
+    const total = cart.reduce((s, i) => s + (i.price ?? 0) * (i.qty ?? 0), 0);
 
     if (fiadoId && paymentMethod === "Fiado PDV") {
       const fiado = fiados.find(f => f.id === fiadoId);
       if (fiado) {
-        const newAmount = fiado.amount + total;
+        const newAmount = (fiado.amount ?? 0) + total;
         setFiados(prev => prev.map(f => f.id === fiadoId ? { ...f, amount: newAmount, status: newAmount > 0 ? "Em Atraso" : "Pendente" } : f));
-        await supabase.from('fiados').update({ valor: newAmount, status: newAmount > 0 ? "Em Atraso" : "Pendente" }).eq('id', fiadoId);
-        
-        // Record history in Supabase
-        await supabase.from('historico_fiado').insert({
-          id_cliente: fiadoId,
-          descricao: `Compra PDV: ${cart.map(i => i.name).join(', ')}`,
-          valor: total,
-          tipo: 'Compra',
-          data: new Date().toISOString()
-        });
+        try {
+          await supabase.from('fiados').update({ valor: newAmount, status: newAmount > 0 ? "Em Atraso" : "Pendente" }).eq('id', fiadoId);
+          await supabase.from('historico_fiado').insert({
+            id_cliente: fiadoId,
+            descricao: `Compra PDV: ${cart.map(i => i.name).join(', ')}`,
+            valor: total,
+            tipo: 'Compra',
+            data: new Date().toISOString()
+          });
+        } catch (e) {
+          console.warn('Erro ao atualizar fiado no checkout:', e);
+        }
       }
     }
 
@@ -331,19 +377,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (vendaId) {
       for (const cartItem of cart) {
         if (cartItem.id) {
-          await supabase.from('itens_venda').insert({
-            venda_id: vendaId,
-            produto_id: cartItem.id,
-            quantidade: cartItem.qty,
-            preco_unitario: cartItem.price
-          });
-
-          // Stock update uses local state current items qty before deduction to calculate correct deduction, 
-          // or just find by id.
-          // Since we already optimistically reduced, we can find the item now:
-          const itemNow = items.find(i => i.id === cartItem.id);
-          const oldStock = itemNow ? itemNow.qty : cartItem.qty; // Note: items in state hasn't updated in closure if we use `items` here
-          // Wait, supabase will just set it to the new quantity
+          try {
+            await supabase.from('itens_venda').insert({
+              venda_id: vendaId,
+              produto_id: cartItem.id,
+              quantidade: cartItem.qty,
+              preco_unitario: cartItem.price
+            });
+          } catch (e) {
+            console.warn('Erro ao inserir item_venda:', e);
+          }
         }
       }
     }
@@ -354,8 +397,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   const addQuickSale = async (desc: string, value: number) => {
-    // Use exactly what the user typed — no fallback overrides
-    await registrarMovimentacao(new Date(), desc, value, "Venda", { metodo_pagamento: 'Dinheiro' });
+    // Use EXACTLY what the user typed — never replace with hardcoded text
+    const safeDesc = (desc || '').trim();
+    if (!safeDesc) {
+      toast.error('Descrição é obrigatória.');
+      return;
+    }
+    await registrarMovimentacao(new Date(), safeDesc, value, "Venda", { metodo_pagamento: 'Dinheiro' });
   };
 
   const addStockSale = async (itemName: string, value: number) => {
@@ -364,13 +412,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const addFiado = async (fiado: any) => {
     setFiados(prev => [fiado, ...prev]);
-    await supabase.from('fiados').insert({
-      nome: fiado.name,
-      telefone: fiado.phone,
-      valor: fiado.amount,
-      data_vencimento: fiado.dueDate.toISOString(),
-      status: fiado.status
-    });
+    try {
+      await supabase.from('fiados').insert({
+        nome: fiado.name,
+        telefone: fiado.phone,
+        valor: fiado.amount,
+        data_vencimento: fiado.dueDate.toISOString(),
+        status: fiado.status
+      });
+    } catch (e) {
+      console.warn('Erro ao salvar fiado:', e);
+    }
   };
 
   const addService = (service: any) => {
@@ -530,7 +582,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       toast.success("Relatório de fechamento de caixa enviado por e-mail");
     } catch (err) {
       console.error("Erro ao enviar e-mail:", err);
-      throw err;
+      toast.error("Não foi possível enviar o e-mail, mas o relatório foi gerado.");
+      // Don't re-throw — this would crash the error boundary
     }
   };
 
@@ -573,51 +626,54 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     } catch (error) {
       console.error("Erro crítico durante o reset:", error);
-      throw error;
+      toast.error("Erro ao resetar dados.");
+      // Don't re-throw — it would crash the error boundary
     }
   };
 
   const addFiadoTransaction = async (fiadoId: string, amount: number, desc: string) => {
     const fiado = fiados.find(f => f.id === fiadoId);
     if (!fiado) return;
-    const newAmount = fiado.amount + amount;
+    const newAmount = (fiado.amount ?? 0) + amount;
     const newStatus = newAmount > 0 ? "Em Atraso" : "Pendente";
 
     setFiados(prev => prev.map(f => f.id === fiadoId ? { ...f, amount: newAmount, status: newStatus } : f));
-    await supabase.from('fiados').update({ valor: newAmount, status: newStatus }).eq('id', fiadoId);
+    try {
+      await supabase.from('fiados').update({ valor: newAmount, status: newStatus }).eq('id', fiadoId);
+      await supabase.from('historico_fiado').insert({
+        id_cliente: fiadoId,
+        descricao: `Compra: ${desc}`,
+        valor: amount,
+        tipo: 'Compra',
+        data: new Date().toISOString()
+      });
+    } catch (e) {
+      console.warn('Erro ao registrar transação fiado:', e);
+    }
 
-    // Record history
-    await supabase.from('historico_fiado').insert({
-      id_cliente: fiadoId,
-      descricao: `Compra: ${desc}`,
-      valor: amount,
-      tipo: 'Compra',
-      data: new Date().toISOString()
-    });
-
-    // Add to vendas as pending (Supabase) and local states
     await registrarMovimentacao(new Date(), desc, amount, "Venda Fiada", { metodo_pagamento: `Fiado: ${desc}`, cliente_id: fiadoId });
   };
 
   const payFiado = async (fiadoId: string, amount: number) => {
     const fiado = fiados.find(f => f.id === fiadoId);
     if (!fiado) return;
-    const newAmount = Math.max(0, fiado.amount - amount);
+    const newAmount = Math.max(0, (fiado.amount ?? 0) - amount);
     const newStatus = newAmount > 0 ? "Pendente" : "Pendente";
 
     setFiados(prev => prev.map(f => f.id === fiadoId ? { ...f, amount: newAmount, status: newStatus } : f));
-    await supabase.from('fiados').update({ valor: newAmount, status: newStatus }).eq('id', fiadoId);
+    try {
+      await supabase.from('fiados').update({ valor: newAmount, status: newStatus }).eq('id', fiadoId);
+      await supabase.from('historico_fiado').insert({
+        id_cliente: fiadoId,
+        descricao: `Pagamento Realizado`,
+        valor: amount,
+        tipo: 'Pagamento',
+        data: new Date().toISOString()
+      });
+    } catch (e) {
+      console.warn('Erro ao registrar pagamento fiado:', e);
+    }
 
-    // Record history
-    await supabase.from('historico_fiado').insert({
-      id_cliente: fiadoId,
-      descricao: `Pagamento Realizado`,
-      valor: amount,
-      tipo: 'Pagamento',
-      data: new Date().toISOString()
-    });
-
-    // Add to vendas as green (Baixa) and local states
     await registrarMovimentacao(new Date(), `Pagamento Realizado`, amount, "Pagamento de Fiado", { metodo_pagamento: `Baixa Fiado: ${fiado.name}`, cliente_id: fiadoId });
   };
 

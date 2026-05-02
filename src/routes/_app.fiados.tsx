@@ -52,6 +52,9 @@ function Fiados() {
       toast.success(`Baixa de R$ ${val.toFixed(2)} realizada com sucesso para ${selectedFiado.name}!`);
       setSelectedFiado(null);
       setBaixaValue("");
+    } catch (e) {
+      console.warn("Erro ao processar baixa:", e);
+      toast.error("Erro ao realizar baixa.");
     } finally {
       setIsSubmitting(false);
     }
@@ -70,6 +73,9 @@ function Fiados() {
       setTransactionFiado(null);
       setTransactionDesc("");
       setTransactionValue("");
+    } catch (e) {
+      console.warn("Erro ao adicionar fiado:", e);
+      toast.error("Erro ao registrar fiado.");
     } finally {
       setIsSubmitting(false);
     }
@@ -96,6 +102,9 @@ function Fiados() {
       setNewClientName("");
       setNewClientPhone("");
       toast.success("Cliente cadastrado com sucesso!");
+    } catch (e) {
+      console.warn("Erro ao cadastrar cliente:", e);
+      toast.error("Erro ao cadastrar cliente.");
     } finally {
       setIsSubmitting(false);
     }
@@ -200,7 +209,7 @@ function Fiados() {
                 <div className="border-t border-border/40 pt-3 flex items-center justify-between gap-4">
                   <div>
                     <span className="block text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-0.5">Dívida Total</span>
-                    <span className="text-lg font-black text-white leading-none">R$ {fiado.amount.toFixed(2)}</span>
+                    <span className="text-lg font-black text-white leading-none">R$ {(fiado?.amount ?? 0).toFixed(2)}</span>
                   </div>
                   
                   <motion.button 
@@ -473,7 +482,7 @@ function Fiados() {
                 <div className="rounded-2xl bg-white/5 p-4 border border-white/5 flex items-center justify-between">
                   <span className="text-sm font-semibold text-muted-foreground uppercase">Saldo Devedor Atual</span>
                   <span className="text-2xl font-black text-white">
-                    R$ {historyItems.reduce((acc, item) => item.tipo === 'Compra' ? acc + item.valor : acc - item.valor, 0).toFixed(2)}
+                     R$ {(Array.isArray(historyItems) ? historyItems : []).reduce((acc, item) => item?.tipo === 'Compra' ? acc + (item?.valor ?? 0) : acc - (item?.valor ?? 0), 0).toFixed(2)}
                   </span>
                 </div>
               </div>
@@ -490,7 +499,7 @@ function Fiados() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {historyItems.map((item, i) => (
+                    {(Array.isArray(historyItems) ? historyItems : []).map((item, i) => (
                       <motion.div 
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
@@ -510,8 +519,8 @@ function Fiados() {
                             </p>
                           </div>
                         </div>
-                        <div className={`text-sm font-black ${item.tipo === 'Compra' ? 'text-destructive' : 'text-aqua'}`}>
-                          {item.tipo === 'Compra' ? '+' : '-'} R$ {item.valor.toFixed(2)}
+                        <div className={`text-sm font-black ${item?.tipo === 'Compra' ? 'text-destructive' : 'text-aqua'}`}>
+                          {item?.tipo === 'Compra' ? '+' : '-'} R$ {(item?.valor ?? 0).toFixed(2)}
                         </div>
                       </motion.div>
                     ))}

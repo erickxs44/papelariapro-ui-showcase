@@ -20,8 +20,9 @@ export function FAB() {
   const { addExpense, addQuickSale } = useStore();
   const [desc, setDesc] = useState("");
   const [val, setVal] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const numericValue = parseFloat(val.replace(",", "."));
     if (isNaN(numericValue) || numericValue <= 0) {
@@ -29,18 +30,23 @@ export function FAB() {
       return;
     }
 
-    if (modalType === "venda") {
-      addQuickSale(desc || "Vendas", numericValue);
-      toast.success("Venda registrada com sucesso!");
-    } else {
-      addExpense(desc, numericValue);
-      toast.success("Despesa registrada com sucesso!");
-    }
+    setIsSubmitting(true);
+    try {
+      if (modalType === "venda") {
+        await addQuickSale(desc || "Vendas", numericValue);
+        toast.success("Venda registrada com sucesso!");
+      } else {
+        await addExpense(desc, numericValue);
+        toast.success("Despesa registrada com sucesso!");
+      }
 
-    setModalType(null);
-    setDesc("");
-    setVal("");
-    setOpen(false);
+      setModalType(null);
+      setDesc("");
+      setVal("");
+      setOpen(false);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const openModal = (type: "venda" | "despesa") => {
@@ -137,10 +143,20 @@ export function FAB() {
               
               <button 
                 type="submit" 
-                className={`mt-4 w-full rounded-2xl py-5 text-lg font-black text-white shadow-2xl transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-3 ${modalType === 'venda' ? 'bg-aqua shadow-aqua/20' : 'bg-destructive shadow-destructive/20'}`}
+                disabled={isSubmitting}
+                className={`mt-4 w-full rounded-2xl py-5 text-lg font-black text-white shadow-2xl transition-all hover:scale-[1.02] active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed ${modalType === 'venda' ? 'bg-aqua shadow-aqua/20' : 'bg-destructive shadow-destructive/20'}`}
               >
-                <Check className="w-6 h-6" /> 
-                {modalType === 'venda' ? 'Confirmar Venda' : 'Confirmar Saída'}
+                {isSubmitting ? (
+                  <>
+                    <div className="h-6 w-6 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                    Processando...
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-6 h-6" /> 
+                    {modalType === 'venda' ? 'Confirmar Venda' : 'Confirmar Saída'}
+                  </>
+                )}
               </button>
             </form>
           </div>

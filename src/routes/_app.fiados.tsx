@@ -35,6 +35,7 @@ function Fiados() {
   const [historyFiado, setHistoryFiado] = useState<any | null>(null);
   const [historyItems, setHistoryItems] = useState<any[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const filtered = (fiados || []).filter(f => f.name.toLowerCase().includes(search.toLowerCase()));
 
@@ -43,25 +44,35 @@ function Fiados() {
   const handleBaixa = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedFiado || !baixaValue) return;
-    const val = parseFloat(baixaValue.replace(",", "."));
-    if (val <= 0) return;
-    await payFiado(selectedFiado.id, val);
-    toast.success(`Baixa de R$ ${val.toFixed(2)} realizada com sucesso para ${selectedFiado.name}!`);
-    setSelectedFiado(null);
-    setBaixaValue("");
+    setIsSubmitting(true);
+    try {
+      const val = parseFloat(baixaValue.replace(",", "."));
+      if (val <= 0) return;
+      await payFiado(selectedFiado.id, val);
+      toast.success(`Baixa de R$ ${val.toFixed(2)} realizada com sucesso para ${selectedFiado.name}!`);
+      setSelectedFiado(null);
+      setBaixaValue("");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleAddTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!transactionFiado || !transactionDesc || !transactionValue) return;
-    const val = parseFloat(transactionValue.replace(",", "."));
-    if (val <= 0) return;
-    await addFiadoTransaction(transactionFiado.id, val, transactionDesc);
-    toast.success(`Fiado adicionado para ${transactionFiado.name}!`);
-    setIsAddTransactionModalOpen(false);
-    setTransactionFiado(null);
-    setTransactionDesc("");
-    setTransactionValue("");
+    setIsSubmitting(true);
+    try {
+      const val = parseFloat(transactionValue.replace(",", "."));
+      if (val <= 0) return;
+      await addFiadoTransaction(transactionFiado.id, val, transactionDesc);
+      toast.success(`Fiado adicionado para ${transactionFiado.name}!`);
+      setIsAddTransactionModalOpen(false);
+      setTransactionFiado(null);
+      setTransactionDesc("");
+      setTransactionValue("");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const [isNewClientModalOpen, setIsNewClientModalOpen] = useState(false);
@@ -71,18 +82,23 @@ function Fiados() {
   const handleNewClient = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newClientName || !newClientPhone) return;
-    await addFiado({
-      id: Math.random().toString(36).substr(2, 9),
-      name: newClientName,
-      phone: newClientPhone,
-      amount: 0,
-      dueDate: new Date(new Date().setDate(new Date().getDate() + 30)),
-      status: "Pendente"
-    });
-    setIsNewClientModalOpen(false);
-    setNewClientName("");
-    setNewClientPhone("");
-    toast.success("Cliente cadastrado com sucesso!");
+    setIsSubmitting(true);
+    try {
+      await addFiado({
+        id: Math.random().toString(36).substr(2, 9),
+        name: newClientName,
+        phone: newClientPhone,
+        amount: 0,
+        dueDate: new Date(new Date().setDate(new Date().getDate() + 30)),
+        status: "Pendente"
+      });
+      setIsNewClientModalOpen(false);
+      setNewClientName("");
+      setNewClientPhone("");
+      toast.success("Cliente cadastrado com sucesso!");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const openHistory = async (fiado: any) => {
@@ -263,9 +279,17 @@ function Fiados() {
                     type="submit"
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.95 }}
-                    className="flex-1 rounded-2xl bg-gradient-to-r from-aqua to-electric py-3.5 text-sm font-bold text-white shadow-[0_0_20px_rgba(111,0,255,0.5)] transition btn-glow"
+                    disabled={isSubmitting}
+                    className="flex-1 rounded-2xl bg-gradient-to-r from-aqua to-electric py-3.5 text-sm font-bold text-white shadow-[0_0_20px_rgba(111,0,255,0.5)] transition btn-glow disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
                   >
-                    Confirmar
+                    {isSubmitting ? (
+                      <>
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                        Processando...
+                      </>
+                    ) : (
+                      "Confirmar"
+                    )}
                   </motion.button>
                 </div>
               </form>
@@ -328,10 +352,17 @@ function Fiados() {
                   whileHover={transactionDesc.length > 0 ? { scale: 1.02 } : {}}
                   whileTap={transactionDesc.length > 0 ? { scale: 0.95 } : {}}
                   type="submit"
-                  disabled={transactionDesc.length === 0}
-                  className="mt-4 w-full rounded-2xl bg-electric py-3.5 text-sm font-bold text-white shadow-lg shadow-electric/30 transition hover:bg-electric/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={transactionDesc.length === 0 || isSubmitting}
+                  className="mt-4 w-full rounded-2xl bg-electric py-3.5 text-sm font-bold text-white shadow-lg shadow-electric/30 transition hover:bg-electric/90 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
                 >
-                  Confirmar Fiado
+                  {isSubmitting ? (
+                    <>
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                      Processando...
+                    </>
+                  ) : (
+                    "Confirmar Fiado"
+                  )}
                 </motion.button>
               </form>
             </motion.div>
@@ -391,9 +422,17 @@ function Fiados() {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.95 }}
                     type="submit"
-                    className="rounded-2xl bg-electric px-6 py-3 font-bold text-white shadow-lg shadow-electric/30 transition hover:bg-electric/90 w-full"
+                    disabled={isSubmitting}
+                    className="rounded-2xl bg-electric px-6 py-3 font-bold text-white shadow-lg shadow-electric/30 transition hover:bg-electric/90 w-full flex justify-center items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Cadastrar
+                    {isSubmitting ? (
+                      <>
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                        Processando...
+                      </>
+                    ) : (
+                      "Cadastrar"
+                    )}
                   </motion.button>
                 </div>
               </form>

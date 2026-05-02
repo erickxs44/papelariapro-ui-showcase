@@ -48,19 +48,25 @@ function Pdv() {
   const [isNewServiceModalOpen, setIsNewServiceModalOpen] = useState(false);
   const [newServiceName, setNewServiceName] = useState("");
   const [newServicePrice, setNewServicePrice] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleAddNewService = (e: React.FormEvent) => {
+  const handleAddNewService = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newServiceName || !newServicePrice) return;
-    addService({
-      name: newServiceName,
-      price: parseFloat(newServicePrice.replace(",", ".")),
-      icon: "Copy" // Default icon
-    });
-    setIsNewServiceModalOpen(false);
-    setNewServiceName("");
-    setNewServicePrice("");
-    toast.success("Serviço adicionado com sucesso!");
+    setIsSubmitting(true);
+    try {
+      addService({
+        name: newServiceName,
+        price: parseFloat(newServicePrice.replace(",", ".")),
+        icon: "Copy" // Default icon
+      });
+      setIsNewServiceModalOpen(false);
+      setNewServiceName("");
+      setNewServicePrice("");
+      toast.success("Serviço adicionado com sucesso!");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const add = (name: string, price: number, stockQty?: number, id?: string) => {
@@ -109,18 +115,23 @@ function Pdv() {
   };
 
   const processCheckout = async (method: string, fiadoId?: string) => {
-    toast.promise(
-      async () => {
-        await checkout(cart, method, fiadoId);
-        setCart([]);
-        if (fiadoId) setIsFiadoModalOpen(false);
-      },
-      {
-        loading: 'Salvando venda...',
-        success: 'Venda realizada com sucesso!',
-        error: 'Erro ao salvar venda.',
-      }
-    );
+    setIsSubmitting(true);
+    try {
+      await toast.promise(
+        async () => {
+          await checkout(cart, method, fiadoId);
+          setCart([]);
+          if (fiadoId) setIsFiadoModalOpen(false);
+        },
+        {
+          loading: 'Salvando venda...',
+          success: 'Venda realizada com sucesso!',
+          error: 'Erro ao salvar venda.',
+        }
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
 
@@ -364,14 +375,23 @@ function Pdv() {
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               onClick={handleCheckout} 
-              disabled={cart.length === 0} 
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-electric to-aqua py-3 shadow-[0_5px_15px_-5px] shadow-electric/50 transition disabled:opacity-50 active:scale-95 btn-glow"
+              disabled={cart.length === 0 || isSubmitting} 
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-electric to-aqua py-3 shadow-[0_5px_15px_-5px] shadow-electric/50 transition disabled:opacity-50 active:scale-95 btn-glow disabled:cursor-not-allowed"
             >
-              <CreditCard className="h-4 w-4 text-white" />
-              <div className="flex flex-col items-start leading-none text-white">
-                <span className="text-sm font-black">Finalizar Venda</span>
-                <span className="text-[9px] font-bold uppercase opacity-80 mt-0.5">Via {paymentMethod}</span>
-              </div>
+              {isSubmitting ? (
+                <>
+                  <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  <span className="text-sm font-black text-white">Processando...</span>
+                </>
+              ) : (
+                <>
+                  <CreditCard className="h-4 w-4 text-white" />
+                  <div className="flex flex-col items-start leading-none text-white">
+                    <span className="text-sm font-black">Finalizar Venda</span>
+                    <span className="text-[9px] font-bold uppercase opacity-80 mt-0.5">Via {paymentMethod}</span>
+                  </div>
+                </>
+              )}
             </motion.button>
           </div>
         </div>
@@ -431,9 +451,17 @@ function Pdv() {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.95 }}
                     type="submit"
-                    className="rounded-2xl bg-electric px-6 py-3 font-bold text-white shadow-lg shadow-electric/30 transition hover:bg-electric/90 w-full"
+                    disabled={isSubmitting}
+                    className="rounded-2xl bg-electric px-6 py-3 font-bold text-white shadow-lg shadow-electric/30 transition hover:bg-electric/90 w-full disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
                   >
-                    Salvar novo produto
+                    {isSubmitting ? (
+                      <>
+                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                        Processando...
+                      </>
+                    ) : (
+                      "Salvar novo produto"
+                    )}
                   </motion.button>
                 </div>
               </form>
@@ -485,10 +513,17 @@ function Pdv() {
                     whileHover={selectedFiadoClient ? { scale: 1.02 } : {}}
                     whileTap={selectedFiadoClient ? { scale: 0.95 } : {}}
                     onClick={() => processCheckout("Fiado PDV", selectedFiadoClient)}
-                    disabled={!selectedFiadoClient}
-                    className="rounded-2xl bg-electric px-6 py-3 font-bold text-white shadow-lg shadow-electric/30 transition hover:bg-electric/90 w-full disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={!selectedFiadoClient || isSubmitting}
+                    className="rounded-2xl bg-electric px-6 py-3 font-bold text-white shadow-lg shadow-electric/30 transition hover:bg-electric/90 w-full disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
                   >
-                    Confirmar Venda
+                    {isSubmitting ? (
+                      <>
+                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                        Processando...
+                      </>
+                    ) : (
+                      "Confirmar Venda"
+                    )}
                   </motion.button>
                 </div>
               </div>

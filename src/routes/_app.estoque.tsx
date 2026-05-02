@@ -34,29 +34,35 @@ function Estoque() {
   const [discountQty, setDiscountQty] = useState("");
   const [isConfirmingIntegration, setIsConfirmingIntegration] = useState(false);
   const { discountStock, addStockSale } = useStore();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const filtered = items.filter(
     (i) => (cat === "Todos" || i.cat === cat) && i.name.toLowerCase().includes(q.toLowerCase()),
   );
 
-  const handleAdd = (e: React.FormEvent) => {
+  const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName || !newPrice || !newQty) return;
-    const qtyNum = parseInt(newQty, 10);
-    const item = {
-      name: newName,
-      cat: "Escolar",
-      costPrice: 0, // removed from UI
-      price: parseFloat(newPrice.replace(",", ".")),
-      qty: qtyNum,
-      level: calculateLevel(qtyNum)
-    };
-    addStock(item as any);
-    setIsModalOpen(false);
-    setNewName("");
-    setNewPrice("");
-    setNewQty("");
-    toast.success("Produto cadastrado!");
+    setIsSubmitting(true);
+    try {
+      const qtyNum = parseInt(newQty, 10);
+      const item = {
+        name: newName,
+        cat: "Escolar",
+        costPrice: 0, // removed from UI
+        price: parseFloat(newPrice.replace(",", ".")),
+        qty: qtyNum,
+        level: calculateLevel(qtyNum)
+      };
+      await addStock(item as any);
+      setIsModalOpen(false);
+      setNewName("");
+      setNewPrice("");
+      setNewQty("");
+      toast.success("Produto cadastrado!");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const openDiscountModal = (id: string, name: string) => {
@@ -82,21 +88,26 @@ function Estoque() {
 
   const finalizeDiscount = async (integrate: boolean) => {
     if (!discountItemId || !discountQty) return;
-    const qtyNum = parseInt(discountQty, 10);
-    
-    await discountStock(discountItemId, qtyNum);
-    
-    if (integrate) {
-      const item = items.find(i => i.id === discountItemId);
-      if (item) {
-        const totalValue = item.price * qtyNum;
-        await addStockSale(item.name, totalValue);
+    setIsSubmitting(true);
+    try {
+      const qtyNum = parseInt(discountQty, 10);
+      
+      await discountStock(discountItemId, qtyNum);
+      
+      if (integrate) {
+        const item = items.find(i => i.id === discountItemId);
+        if (item) {
+          const totalValue = item.price * qtyNum;
+          await addStockSale(item.name, totalValue);
+        }
       }
+      
+      setIsConfirmingIntegration(false);
+      setIsDiscountModalOpen(false);
+      toast.success(`${qtyNum} unidades descontadas de ${discountItemName}!`);
+    } finally {
+      setIsSubmitting(false);
     }
-    
-    setIsConfirmingIntegration(false);
-    setIsDiscountModalOpen(false);
-    toast.success(`${qtyNum} unidades descontadas de ${discountItemName}!`);
   };
 
   return (
@@ -248,8 +259,19 @@ function Estoque() {
                 <label className="text-sm font-semibold text-muted-foreground">Quantidade Inicial</label>
                 <input required value={newQty} onChange={e => setNewQty(e.target.value)} type="number" placeholder="10" className="mt-1 w-full rounded-xl border border-border/60 bg-elevated px-4 py-2 focus:ring-2 focus:ring-electric/50 outline-none" />
               </div>
-              <button type="submit" className="mt-2 w-full rounded-xl bg-electric py-3 text-sm font-bold text-white shadow-lg shadow-electric/20 hover:bg-electric/90">
-                Adicionar ao Estoque
+              <button 
+                type="submit" 
+                disabled={isSubmitting}
+                className="mt-2 w-full rounded-xl bg-electric py-3 text-sm font-bold text-white shadow-lg shadow-electric/20 hover:bg-electric/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isSubmitting ? (
+                  <>
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                    Processando...
+                  </>
+                ) : (
+                  "Adicionar ao Estoque"
+                )}
               </button>
             </form>
           </div>
@@ -288,15 +310,24 @@ function Estoque() {
                 <div className="flex gap-4">
                   <button 
                     onClick={() => finalizeDiscount(false)}
-                    className="flex-1 rounded-xl border border-border/60 bg-elevated py-3 text-sm font-bold hover:bg-elevated/80 transition-colors"
+                    disabled={isSubmitting}
+                    className="flex-1 rounded-xl border border-border/60 bg-elevated py-3 text-sm font-bold hover:bg-elevated/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Não
                   </button>
                   <button 
                     onClick={() => finalizeDiscount(true)}
-                    className="flex-1 rounded-xl bg-aqua/20 text-aqua border border-aqua/40 py-3 text-sm font-bold hover:bg-aqua/30 transition-colors"
+                    disabled={isSubmitting}
+                    className="flex-1 rounded-xl bg-aqua/20 text-aqua border border-aqua/40 py-3 text-sm font-bold hover:bg-aqua/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
-                    Sim
+                    {isSubmitting ? (
+                      <>
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-aqua/30 border-t-aqua" />
+                        Processando...
+                      </>
+                    ) : (
+                      "Sim"
+                    )}
                   </button>
                 </div>
               </div>

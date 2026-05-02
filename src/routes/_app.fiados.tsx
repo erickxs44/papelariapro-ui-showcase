@@ -134,71 +134,69 @@ function Fiados() {
           />
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
           <AnimatePresence>
             {filtered.map((fiado, i) => (
               <motion.div 
                 layout
-                initial={{ opacity: 0, scale: 0.9 }}
+                initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
-                transition={{ delay: i * 0.05 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ delay: i * 0.02 }}
                 key={fiado.id} 
-                className="group relative rounded-3xl border border-border/40 bg-elevated/40 p-6 transition-all hover:border-electric hover:shadow-[0_0_20px_rgba(111,0,255,0.15)] flex flex-col justify-between"
+                className="group relative rounded-2xl border border-border/40 bg-elevated/40 p-4 transition-all hover:border-electric hover:shadow-[0_0_20px_rgba(111,0,255,0.1)] flex flex-col justify-between gap-3"
               >
-                <div>
-                  <div className="flex justify-between items-start mb-4">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-full bg-surface/80 border border-border/60">
-                      <User className="h-6 w-6 text-muted-foreground" />
-                    </div>
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${fiado.status === "Em Atraso" ? "bg-destructive/20 text-destructive animate-pulse-ring" : "bg-aqua/20 text-aqua"}`}>
+                <div className="flex justify-between items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface/80 border border-border/60">
+                    <User className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-base font-bold truncate">{fiado.name}</h3>
+                    <span className={`inline-block px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider mt-0.5 ${fiado.status === "Em Atraso" ? "bg-destructive/20 text-destructive animate-pulse-ring" : "bg-aqua/20 text-aqua"}`}>
                       {fiado.status}
                     </span>
                   </div>
-                  <div className="flex justify-between items-center w-full">
-                    <h3 className="text-xl font-bold">{fiado.name}</h3>
-                    <div className="flex gap-2">
-                      <motion.button 
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        onClick={() => openHistory(fiado)}
-                        className="flex h-10 w-10 items-center justify-center rounded-full bg-aqua/20 text-aqua hover:bg-aqua hover:text-white transition-colors"
-                        title="Ver Extrato"
-                      >
-                        <FileText className="h-5 w-5" />
-                      </motion.button>
-                      <motion.button 
-                        whileHover={{ scale: 1.1 }}
-                        whileTap={{ scale: 0.9 }}
-                        onClick={() => {
-                          setTransactionFiado(fiado);
-                          setIsAddTransactionModalOpen(true);
-                        }}
-                        className="flex h-10 w-10 items-center justify-center rounded-full bg-electric/20 text-electric hover:bg-electric hover:text-white transition-colors"
-                        title="Adicionar Fiado"
-                      >
-                        <Plus className="h-5 w-5" />
-                      </motion.button>
-                    </div>
-                  </div>
-                  </div>
-                  
-                  <div className="mt-6 border-t border-border/40 pt-4 flex flex-col gap-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Dívida Total</span>
-                      <span className="text-2xl font-black text-white">R$ {fiado.amount.toFixed(2)}</span>
-                    </div>
-                    
+                  <div className="flex gap-1.5 shrink-0">
                     <motion.button 
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => setSelectedFiado(fiado)}
-                      className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-electric px-4 py-3 text-sm font-bold text-white shadow-lg shadow-electric/30 transition hover:bg-electric/90"
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => openHistory(fiado)}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg bg-aqua/10 text-aqua hover:bg-aqua hover:text-white transition-colors"
+                      title="Ver Extrato"
                     >
-                      <ShieldCheck className="h-4 w-4" />
-                      Baixar / Descontar
+                      <FileText className="h-4 w-4" />
+                    </motion.button>
+                    <motion.button 
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => {
+                        setTransactionFiado(fiado);
+                        setIsAddTransactionModalOpen(true);
+                      }}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg bg-electric/10 text-electric hover:bg-electric hover:text-white transition-colors"
+                      title="Adicionar Fiado"
+                    >
+                      <Plus className="h-4 w-4" />
                     </motion.button>
                   </div>
+                </div>
+                  
+                <div className="border-t border-border/40 pt-3 flex items-center justify-between gap-4">
+                  <div>
+                    <span className="block text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-0.5">Dívida Total</span>
+                    <span className="text-lg font-black text-white leading-none">R$ {fiado.amount.toFixed(2)}</span>
+                  </div>
+                  
+                  <motion.button 
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setSelectedFiado(fiado)}
+                    className="flex items-center justify-center gap-1.5 rounded-xl bg-electric px-3 py-2 text-xs font-bold text-white shadow-lg shadow-electric/20 transition hover:bg-electric/90"
+                  >
+                    <ShieldCheck className="h-4 w-4" />
+                    Baixar
+                  </motion.button>
+                </div>
               </motion.div>
             ))}
           </AnimatePresence>

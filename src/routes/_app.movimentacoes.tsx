@@ -165,14 +165,14 @@ function Movimentacoes() {
         </div>
 
         {/* Table Container */}
-        <div className="overflow-hidden rounded-2xl border border-border/40 bg-elevated/5">
+        {/* Table Container - Desktop */}
+        <div className="hidden md:block overflow-hidden rounded-2xl border border-border/40 bg-elevated/5">
           <div className="overflow-x-auto max-h-[650px] overflow-y-auto custom-scrollbar">
             <table className="w-full text-left text-sm border-collapse">
               <thead className="sticky top-0 z-10">
                 <tr className="border-b border-border/60 bg-sidebar/95 backdrop-blur-md text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   <th className="px-6 py-4">Data/Hora</th>
                   <th className="px-6 py-4">Descrição</th>
-                  <th className="px-6 py-4">Categoria</th>
                   <th className="px-6 py-4 text-right">Valor</th>
                 </tr>
               </thead>
@@ -182,7 +182,6 @@ function Movimentacoes() {
                     <tr key={i} className="animate-pulse">
                       <td className="px-6 py-4"><div className="h-4 w-24 rounded bg-electric/20 backdrop-blur-sm" /></td>
                       <td className="px-6 py-4"><div className="h-4 w-48 rounded bg-electric/20 backdrop-blur-sm" /></td>
-                      <td className="px-6 py-4"><div className="h-4 w-20 rounded bg-electric/20 backdrop-blur-sm" /></td>
                       <td className="px-6 py-4 text-right"><div className="h-4 w-16 ml-auto rounded bg-electric/20 backdrop-blur-sm" /></td>
                     </tr>
                   ))
@@ -198,12 +197,6 @@ function Movimentacoes() {
                       <td className="px-6 py-4">
                         <span className="font-semibold text-foreground group-hover:text-aqua transition-colors">{m.description}</span>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <Tag className="h-3.5 w-3.5 text-muted-foreground" />
-                          <span className="rounded-lg bg-elevated/60 px-2.5 py-1 text-[10px] font-black uppercase tracking-tighter text-muted-foreground group-hover:bg-aqua/10 group-hover:text-aqua transition-all">{m.category}</span>
-                        </div>
-                      </td>
                       <td className="px-6 py-4 text-right">
                         <div className={`flex items-center justify-end gap-1.5 font-black text-base ${m.category === 'Fiado' ? 'text-orange-400' : m.type === 'entrada' ? 'text-emerald-400' : 'text-red-500'}`}>
                           <span className="text-lg leading-none">{m.category === 'Fiado' ? '⏳' : m.type === 'entrada' ? '↑' : '↓'}</span>
@@ -214,7 +207,7 @@ function Movimentacoes() {
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={4} className="px-6 py-20 text-center">
+                    <td colSpan={3} className="px-6 py-20 text-center">
                       <div className="flex flex-col items-center gap-2">
                         <ArrowLeftRight className="h-10 w-10 text-muted-foreground/20" />
                         <p className="text-muted-foreground">Nenhuma movimentação encontrada para esta busca.</p>
@@ -225,6 +218,40 @@ function Movimentacoes() {
               </tbody>
             </table>
           </div>
+        </div>
+
+        {/* Mobile Cards */}
+        <div className="md:hidden space-y-3">
+          {loading ? (
+             Array.from({ length: 5 }).map((_, i) => (
+               <div key={i} className="animate-pulse flex flex-col p-4 rounded-xl border border-border/40 bg-elevated/5 gap-2">
+                  <div className="h-4 w-1/3 rounded bg-electric/20 backdrop-blur-sm" />
+                  <div className="h-4 w-2/3 rounded bg-electric/20 backdrop-blur-sm" />
+                  <div className="h-5 w-1/4 rounded bg-electric/20 backdrop-blur-sm self-end mt-2" />
+               </div>
+             ))
+          ) : filteredData.length > 0 ? (
+             filteredData.map(m => (
+               <div key={m.id} className="flex flex-col p-4 rounded-xl border border-border/40 bg-elevated/5 gap-2">
+                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                   <Clock className="h-3 w-3" />
+                   <span>{m.date.toLocaleDateString('pt-BR')} {m.date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+                 </div>
+                 <span className="font-semibold text-sm leading-snug">{m.description}</span>
+                 <div className={`self-end font-black text-base mt-1 ${m.category === 'Fiado' ? 'text-orange-400' : m.type === 'entrada' ? 'text-emerald-400' : 'text-red-500'}`}>
+                   <span>{m.category === 'Fiado' ? '⏳' : m.type === 'entrada' ? '↑' : '↓'}</span>
+                   <span className="ml-1">R$ {m.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
+                 </div>
+               </div>
+             ))
+          ) : (
+             <div className="py-12 text-center">
+                <div className="flex flex-col items-center gap-2">
+                  <ArrowLeftRight className="h-8 w-8 text-muted-foreground/20" />
+                  <p className="text-sm text-muted-foreground">Nenhuma movimentação encontrada.</p>
+                </div>
+             </div>
+          )}
         </div>
         
         {/* Footer Info */}

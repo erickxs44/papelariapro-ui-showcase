@@ -168,14 +168,14 @@ function Pdv() {
         </div>
 
         <div className="relative">
-          <Search className="pointer-events-none absolute left-5 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
+          <Search className="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-muted-foreground" />
           <input
             value={q}
             onChange={e => setQ(e.target.value)}
             onKeyDown={handleKeyDown}
             autoFocus
-            placeholder="Digite o nome do produto..."
-            className="w-full rounded-3xl border-2 border-electric/30 bg-surface/80 py-6 pl-14 pr-5 text-xl placeholder:text-muted-foreground focus:border-electric focus:outline-none focus:ring-4 focus:ring-electric/20 card-inset shadow-lg transition-all"
+            placeholder="Buscar produto..."
+            className="w-full rounded-2xl border border-electric/30 bg-surface/80 py-3.5 pl-12 pr-4 text-base placeholder:text-muted-foreground focus:border-electric focus:outline-none focus:ring-2 focus:ring-electric/20 card-inset shadow-md transition-all"
           />
           {q && searchResults.length > 0 && (
             <div className="absolute z-10 w-full mt-2 bg-surface border border-border/60 rounded-2xl shadow-xl max-h-60 overflow-y-auto">
@@ -184,17 +184,17 @@ function Pdv() {
                   key={p.id || p.name}
                   disabled={p.qty <= 0}
                   onClick={() => { add(p.name, p.price, p.qty, p.id); setQ(""); }}
-                  className={`w-full flex items-center justify-between p-5 transition border-b border-border/40 last:border-0 disabled:opacity-50 disabled:cursor-not-allowed ${idx === 0 ? "bg-electric/5" : "hover:bg-elevated"}`}
+                  className={`w-full flex items-center justify-between p-3.5 transition border-b border-border/40 last:border-0 disabled:opacity-50 disabled:cursor-not-allowed ${idx === 0 ? "bg-electric/5" : "hover:bg-elevated"}`}
                 >
                   <div className="flex flex-col items-start text-left">
-                    <span className="font-bold text-lg">{p.name}</span>
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${p.qty > 0 ? "bg-aqua/10 text-aqua" : "bg-destructive/10 text-destructive"}`}>
-                      {p.qty > 0 ? `${p.qty} em estoque` : "Esgotado"}
+                    <span className="font-bold text-sm">{p.name}</span>
+                    <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full mt-0.5 ${p.qty > 0 ? "bg-aqua/10 text-aqua" : "bg-destructive/10 text-destructive"}`}>
+                      {p.qty > 0 ? `${p.qty} un.` : "Esgotado"}
                     </span>
                   </div>
                   <div className="text-right">
-                    <span className="text-2xl font-black text-electric">R$ {p.price.toFixed(2)}</span>
-                    {idx === 0 && <span className="block text-[10px] uppercase font-bold text-muted-foreground mt-1">Pressione Enter para adicionar</span>}
+                    <span className="text-lg font-black text-electric">R$ {p.price.toFixed(2)}</span>
+                    {idx === 0 && <span className="hidden sm:block text-[10px] uppercase font-bold text-muted-foreground mt-0.5">Enter p/ add</span>}
                   </div>
                 </button>
               ))}
@@ -206,27 +206,27 @@ function Pdv() {
           <>
             {services.length > 0 && (
               <div>
-                <div className="mb-3 flex items-center justify-between">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Serviços rápidos</p>
-                  <div className="rounded-full bg-electric/10 px-3 py-1 text-xs font-bold text-electric">
-                    Xerox hoje: {xeroxCount}
+                <div className="mb-2.5 flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Serviços</p>
+                  <div className="rounded-full bg-electric/10 px-2 py-0.5 text-[10px] font-bold text-electric">
+                    Xerox: {xeroxCount}
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                   {services.map((s) => {
                     const Icon = iconMap[s.icon] || Copy;
                     return (
                       <button
                         key={s.name}
                         onClick={() => add(s.name, s.price)}
-                        className="group flex flex-col items-center justify-center gap-3 rounded-3xl border border-aqua/20 bg-surface/40 p-5 text-center transition hover:border-aqua/50 hover:bg-surface/60 hover:scale-[1.02] card-inset"
+                        className="group flex items-center gap-3 rounded-2xl border border-aqua/20 bg-surface/40 p-3 text-left transition hover:border-aqua/50 hover:bg-surface/60 hover:scale-[1.02] card-inset"
                       >
-                        <div className="grid h-12 w-12 place-items-center rounded-2xl bg-aqua/10 text-aqua transition-colors group-hover:bg-aqua/20">
-                          <Icon className="h-6 w-6" />
+                        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-aqua/10 text-aqua transition-colors group-hover:bg-aqua/20">
+                          <Icon className="h-5 w-5" />
                         </div>
-                        <div>
-                          <p className="text-sm font-bold text-foreground transition-colors group-hover:text-aqua">{s.name}</p>
-                          <p className="text-[11px] font-black text-muted-foreground">R$ {s.price.toFixed(2)}</p>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-foreground transition-colors group-hover:text-aqua truncate">{s.name}</p>
+                          <p className="text-[10px] font-black text-muted-foreground">R$ {s.price.toFixed(2)}</p>
                         </div>
                       </button>
                     );
@@ -236,31 +236,14 @@ function Pdv() {
             )}
 
             {listasEscolares.length > 0 && (
-              <div>
-                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Listas Escolares</p>
-                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                  {listasEscolares.map((lista) => (
-                    <button
-                      key={lista.name}
-                      onClick={() => addList(lista.name, lista.items)}
-                      className="flex items-center gap-3 rounded-2xl border border-border/60 bg-surface/70 p-4 transition hover:border-amber-400/50 hover:bg-elevated card-inset"
-                    >
-                      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-amber-400/20 text-amber-500">
-                        <GraduationCap className="h-5 w-5" />
-                      </div>
-                      <div className="text-left">
-                        <p className="text-sm font-bold">{lista.name}</p>
-                        <p className="text-xs text-muted-foreground">{lista.items.length} itens inclusos</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
+              <div className="hidden">
+                {/* User requested removal of Listas Escolares, it was hidden in logic before but let's just make it hidden in JSX to be absolutely sure or just leave it out */}
               </div>
             )}
 
             {quickProducts.length > 0 && (
               <div>
-                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Produtos populares</p>
+                <p className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Mais Vendidos</p>
                 <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                   {quickProducts.map((pName) => {
                     const p = items.find(i => i.name === pName);
@@ -270,13 +253,13 @@ function Pdv() {
                         key={p.name}
                         disabled={p.qty <= 0}
                         onClick={() => add(p.name, p.price, p.qty, p.id)}
-                        className="rounded-2xl border border-border/60 bg-surface/70 p-4 text-left transition hover:border-electric/50 hover:bg-elevated card-inset disabled:opacity-50 disabled:cursor-not-allowed group relative"
+                        className="rounded-2xl border border-border/60 bg-surface/70 p-3 text-left transition hover:border-electric/50 hover:bg-elevated card-inset disabled:opacity-50 disabled:cursor-not-allowed group relative flex flex-col justify-center"
                       >
-                        <p className="text-sm font-semibold truncate">{p.name}</p>
-                        <p className="mt-1 text-xs text-aqua">R$ {p.price.toFixed(2)}</p>
+                        <p className="text-xs font-semibold truncate">{p.name}</p>
+                        <p className="mt-0.5 text-xs font-bold text-aqua">R$ {p.price.toFixed(2)}</p>
                         {p.qty <= 0 && (
                           <div className="absolute inset-0 flex items-center justify-center bg-background/60 rounded-2xl backdrop-blur-[1px]">
-                            <span className="flex items-center gap-1 text-xs font-bold text-destructive bg-destructive/10 px-2 py-1 rounded-full"><PackageX className="w-3 h-3"/> Indisponível</span>
+                            <span className="flex items-center gap-1 text-[10px] font-bold text-destructive bg-destructive/10 px-2 py-1 rounded-full"><PackageX className="w-3 h-3"/> Falta</span>
                           </div>
                         )}
                       </button>
@@ -290,118 +273,108 @@ function Pdv() {
       </div>
 
       {/* Cart */}
-      <aside className="lg:sticky lg:top-20 h-fit rounded-3xl border border-border/60 bg-surface/80 p-6 card-inset">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-lg font-bold">Carrinho</h2>
-          <span className="rounded-full bg-electric/20 px-2.5 py-0.5 text-xs font-semibold text-electric">
+      <aside className="lg:sticky lg:top-20 h-fit rounded-2xl border border-border/60 bg-surface/80 p-4 lg:p-6 card-inset flex flex-col">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-base font-bold">Carrinho</h2>
+          <span className="rounded-full bg-electric/20 px-2 py-0.5 text-[10px] font-semibold text-electric">
             {cart.reduce((s, i) => s + i.qty, 0)} itens
           </span>
         </div>
 
-        <ul className="max-h-[42vh] space-y-2 overflow-y-auto pr-1">
+        <ul className="max-h-[35vh] lg:max-h-[42vh] space-y-2 overflow-y-auto pr-1 custom-scrollbar">
           <AnimatePresence>
             {cart.length === 0 && (
               <motion.li 
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                className="rounded-2xl border border-dashed border-border/60 p-6 text-center text-sm text-muted-foreground"
+                className="rounded-xl border border-dashed border-border/60 p-4 text-center text-xs text-muted-foreground"
               >
-                Carrinho vazio
+                Vazio
               </motion.li>
             )}
             {cart.map((i) => (
               <motion.li 
                 key={i.name} 
-                initial={{ opacity: 0, y: 20, scale: 0.95 }}
+                initial={{ opacity: 0, y: 10, scale: 0.98 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95, x: 20 }}
                 transition={{ type: "spring", stiffness: 300, damping: 25 }}
-                className="rounded-2xl glass p-3"
+                className="rounded-xl glass p-2.5 flex flex-col gap-2"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold">{i.name}</p>
-                    <p className="text-xs text-muted-foreground">R$ {i.price.toFixed(2)} un.</p>
+                    <p className="truncate text-xs font-semibold">{i.name}</p>
+                    <p className="text-[10px] text-muted-foreground">R$ {i.price.toFixed(2)} un.</p>
                   </div>
-                  <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => remove(i.name)} className="text-muted-foreground hover:text-destructive">
-                    <Trash2 className="h-4 w-4" />
+                  <motion.button whileHover={{ scale: 1.1 }} whileTap={{ scale: 0.9 }} onClick={() => remove(i.name)} className="text-muted-foreground hover:text-destructive p-1">
+                    <Trash2 className="h-3.5 w-3.5" />
                   </motion.button>
                 </div>
-                <div className="mt-2 flex items-center justify-between">
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1 rounded-full border border-border/60 bg-surface/50 p-0.5">
-                    <motion.button whileTap={{ scale: 0.9 }} onClick={() => dec(i.name)} className="grid h-7 w-7 place-items-center rounded-full hover:bg-elevated">
-                      <Minus className="h-3.5 w-3.5" />
+                    <motion.button whileTap={{ scale: 0.9 }} onClick={() => dec(i.name)} className="grid h-6 w-6 place-items-center rounded-full hover:bg-elevated text-muted-foreground">
+                      <Minus className="h-3 w-3" />
                     </motion.button>
-                    <span className="w-6 text-center text-sm font-semibold">{i.qty}</span>
+                    <span className="w-5 text-center text-xs font-semibold">{i.qty}</span>
                     <motion.button
                       whileTap={{ scale: 0.9 }}
                       onClick={() => {
                         const itemStock = items.find(stock => stock.name === i.name);
                         add(i.name, i.price, itemStock?.qty, i.id);
                       }}
-                      className="grid h-7 w-7 place-items-center rounded-full hover:bg-elevated"
+                      className="grid h-6 w-6 place-items-center rounded-full hover:bg-elevated text-muted-foreground"
                     >
-                      <Plus className="h-3.5 w-3.5" />
+                      <Plus className="h-3 w-3" />
                     </motion.button>
                   </div>
-                  <p className="text-sm font-bold text-aqua">R$ {(i.price * i.qty).toFixed(2)}</p>
+                  <p className="text-xs font-bold text-aqua">R$ {(i.price * i.qty).toFixed(2)}</p>
                 </div>
               </motion.li>
             ))}
           </AnimatePresence>
         </ul>
 
-        <div className="mt-4 space-y-2 border-t border-border/60 pt-4 text-sm">
-          <div className="flex justify-between text-muted-foreground">
-            <span>Subtotal</span>
-            <span>R$ {subtotal.toFixed(2)}</span>
+        <div className="mt-auto pt-3 border-t border-border/60">
+          <div className="flex items-end justify-between mb-3">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Total</span>
+            <span className="text-xl font-extrabold text-electric">R$ {subtotal.toFixed(2)}</span>
           </div>
-          <div className="flex justify-between text-muted-foreground">
-            <span>Desconto</span>
-            <span>R$ 0,00</span>
-          </div>
-          <div className="flex items-end justify-between pt-2">
-            <span className="text-xs uppercase tracking-wider text-muted-foreground">Total</span>
-            <span className="text-2xl font-extrabold">R$ {subtotal.toFixed(2)}</span>
+
+          <div className="space-y-2.5">
+            <div className="grid grid-cols-4 gap-1.5">
+              {[
+                { id: "Dinheiro", icon: Wallet },
+                { id: "Cartão", icon: CreditCard },
+                { id: "Pix", icon: Smartphone },
+                { id: "Fiado", icon: ReceiptText }
+              ].map(m => (
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.95 }}
+                  key={m.id}
+                  onClick={() => setPaymentMethod(m.id as any)}
+                  className={`flex flex-col items-center justify-center gap-1 rounded-xl border py-2 transition-all ${paymentMethod === m.id ? "border-aqua bg-aqua/10 text-aqua shadow-sm" : "border-border/60 bg-elevated/40 text-muted-foreground hover:bg-elevated"}`}
+                >
+                  <m.icon className="h-3.5 w-3.5" />
+                  <span className="text-[9px] font-bold uppercase truncate w-full px-1">{m.id}</span>
+                </motion.button>
+              ))}
+            </div>
+
+            <motion.button 
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={handleCheckout} 
+              disabled={cart.length === 0} 
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-electric to-aqua py-3 shadow-[0_5px_15px_-5px] shadow-electric/50 transition disabled:opacity-50 active:scale-95 btn-glow"
+            >
+              <CreditCard className="h-4 w-4 text-white" />
+              <div className="flex flex-col items-start leading-none text-white">
+                <span className="text-sm font-black">Finalizar Venda</span>
+                <span className="text-[9px] font-bold uppercase opacity-80 mt-0.5">Via {paymentMethod}</span>
+              </div>
+            </motion.button>
           </div>
         </div>
-
-
-        <div className="mt-4 space-y-3 border-t border-border/60 pt-4">
-          <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Forma de Pagamento</p>
-          <div className="grid grid-cols-4 gap-2">
-            {[
-              { id: "Dinheiro", icon: Wallet },
-              { id: "Cartão", icon: CreditCard },
-              { id: "Pix", icon: Smartphone },
-              { id: "Fiado", icon: ReceiptText }
-            ].map(m => (
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.95 }}
-                key={m.id}
-                onClick={() => setPaymentMethod(m.id as any)}
-                className={`flex flex-col items-center gap-1.5 rounded-2xl border py-3 transition-all ${paymentMethod === m.id ? "border-aqua bg-aqua/10 text-aqua shadow-[0_0_15px_-5px_rgba(34,211,238,0.4)]" : "border-border/60 bg-elevated/40 text-muted-foreground hover:bg-elevated"}`}
-              >
-                <m.icon className="h-4 w-4" />
-                <span className="text-[10px] font-bold uppercase">{m.id}</span>
-              </motion.button>
-            ))}
-          </div>
-        </div>
-
-        <motion.button 
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.98 }}
-          onClick={handleCheckout} 
-          disabled={cart.length === 0} 
-          className="mt-6 flex w-full flex-col items-center justify-center gap-1 rounded-2xl bg-gradient-to-r from-electric to-aqua py-3.5 shadow-[0_10px_30px_-10px] shadow-electric/60 transition disabled:opacity-50 btn-glow"
-        >
-          <div className="flex items-center gap-2 text-sm font-black text-background">
-            <CreditCard className="h-4 w-4" />
-            Finalizar Venda
-          </div>
-          <span className="text-[10px] font-bold uppercase opacity-80 text-background">Pagar com {paymentMethod}</span>
-        </motion.button>
       </aside>
 
       {/* Modal Adicionar Produto/Serviço */}

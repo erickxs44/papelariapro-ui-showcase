@@ -164,91 +164,70 @@ function Movimentacoes() {
           </div>
         </div>
 
-        {/* Table Container */}
-        {/* Table Container - Desktop */}
-        <div className="hidden md:block overflow-hidden rounded-2xl border border-border/40 bg-elevated/5">
-          <div className="overflow-x-auto max-h-[650px] overflow-y-auto custom-scrollbar">
-            <table className="w-full text-left text-sm border-collapse">
-              <thead className="sticky top-0 z-10">
-                <tr className="border-b border-border/60 bg-sidebar/95 backdrop-blur-md text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  <th className="px-6 py-4">Data/Hora</th>
-                  <th className="px-6 py-4">Descrição</th>
-                  <th className="px-6 py-4 text-right">Valor</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/40">
-                {loading ? (
-                  Array.from({ length: 10 }).map((_, i) => (
-                    <tr key={i} className="animate-pulse">
-                      <td className="px-6 py-4"><div className="h-4 w-24 rounded bg-electric/20 backdrop-blur-sm" /></td>
-                      <td className="px-6 py-4"><div className="h-4 w-48 rounded bg-electric/20 backdrop-blur-sm" /></td>
-                      <td className="px-6 py-4 text-right"><div className="h-4 w-16 ml-auto rounded bg-electric/20 backdrop-blur-sm" /></td>
-                    </tr>
-                  ))
-                ) : filteredData.length > 0 ? (
-                  filteredData.map(m => (
-                    <tr key={m.id} className="group transition-colors hover:bg-elevated/20">
-                      <td className="whitespace-nowrap px-6 py-4">
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-3.5 w-3.5 text-muted-foreground group-hover:text-aqua transition-colors" />
-                          <span className="text-muted-foreground">{m.date.toLocaleDateString('pt-BR')} {m.date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="font-semibold text-foreground group-hover:text-aqua transition-colors">{m.description}</span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className={`flex items-center justify-end gap-1.5 font-black text-base ${m.category === 'Fiado' ? 'text-orange-400' : m.type === 'entrada' ? 'text-emerald-400' : 'text-red-500'}`}>
-                          <span className="text-lg leading-none">{m.category === 'Fiado' ? '⏳' : m.type === 'entrada' ? '↑' : '↓'}</span>
-                          <span>R$ {m.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={3} className="px-6 py-20 text-center">
-                      <div className="flex flex-col items-center gap-2">
-                        <ArrowLeftRight className="h-10 w-10 text-muted-foreground/20" />
-                        <p className="text-muted-foreground">Nenhuma movimentação encontrada para esta busca.</p>
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+        {/* List Header */}
+        <div className="flex items-center px-2 pb-3 mb-2 text-xs font-semibold text-muted-foreground border-b border-border/20">
+          <div className="w-16">Data</div>
+          <div className="flex-1">Descrição</div>
+          <div className="text-right">Valor</div>
         </div>
 
-        {/* Mobile Cards */}
-        <div className="md:hidden space-y-3">
+        {/* Unified Clean List */}
+        <div className="space-y-0 max-h-[650px] overflow-y-auto custom-scrollbar pr-2">
           {loading ? (
-             Array.from({ length: 5 }).map((_, i) => (
-               <div key={i} className="animate-pulse flex flex-col p-4 rounded-xl border border-border/40 bg-elevated/5 gap-2">
-                  <div className="h-4 w-1/3 rounded bg-electric/20 backdrop-blur-sm" />
-                  <div className="h-4 w-2/3 rounded bg-electric/20 backdrop-blur-sm" />
-                  <div className="h-5 w-1/4 rounded bg-electric/20 backdrop-blur-sm self-end mt-2" />
+             Array.from({ length: 8 }).map((_, i) => (
+               <div key={i} className="animate-pulse flex items-center p-4 border-b border-border/10">
+                  <div className="w-16"><div className="h-4 w-10 rounded bg-white/5" /></div>
+                  <div className="flex-1 flex gap-3">
+                    <div className="h-8 w-8 rounded-full bg-white/5" />
+                    <div className="space-y-2">
+                      <div className="h-4 w-32 rounded bg-white/5" />
+                      <div className="h-3 w-16 rounded bg-white/5" />
+                    </div>
+                  </div>
+                  <div className="h-4 w-20 rounded bg-white/5" />
                </div>
              ))
           ) : filteredData.length > 0 ? (
-             filteredData.map(m => (
-               <div key={m.id} className="flex flex-col p-4 rounded-xl border border-border/40 bg-elevated/5 gap-2">
-                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                   <Clock className="h-3 w-3" />
-                   <span>{m.date.toLocaleDateString('pt-BR')} {m.date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+             filteredData.map(m => {
+               const isEntrada = m.type === 'entrada';
+               const isPendente = m.category === 'Fiado';
+               
+               let iconBg = isPendente ? 'bg-orange-500/10 text-orange-400' : isEntrada ? 'bg-emerald-500/10 text-emerald-400' : 'bg-white/5 text-muted-foreground';
+               let IconCmp = isPendente ? Clock : isEntrada ? ArrowUpRight : ArrowDownRight;
+               
+               let valueColor = isPendente ? 'text-orange-400' : isEntrada ? 'text-emerald-400' : 'text-muted-foreground';
+               let valuePrefix = isPendente ? '' : isEntrada ? '+' : '-';
+
+               return (
+                 <div key={m.id} className="flex items-center p-4 border-b border-border/10 hover:bg-white/[0.02] transition-colors gap-3">
+                   {/* Left: Date */}
+                   <div className="w-16 flex-shrink-0 text-sm font-medium text-muted-foreground">
+                     {m.date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                   </div>
+                   
+                   {/* Center: Icon + Description */}
+                   <div className="flex-1 min-w-0 flex items-center gap-3">
+                     <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${iconBg}`}>
+                       <IconCmp className="h-4 w-4" />
+                     </div>
+                     <div className="flex flex-col min-w-0">
+                       <span className="font-bold text-sm text-foreground truncate">{m.description}</span>
+                       <span className="text-[11px] text-muted-foreground truncate">{m.category}</span>
+                     </div>
+                   </div>
+                   
+                   {/* Right: Value */}
+                   <div className={`flex-shrink-0 font-bold text-sm md:text-base text-right ${valueColor}`}>
+                     {valuePrefix}R$ {m.value.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                   </div>
                  </div>
-                 <span className="font-semibold text-sm leading-snug">{m.description}</span>
-                 <div className={`self-end font-black text-base mt-1 ${m.category === 'Fiado' ? 'text-orange-400' : m.type === 'entrada' ? 'text-emerald-400' : 'text-red-500'}`}>
-                   <span>{m.category === 'Fiado' ? '⏳' : m.type === 'entrada' ? '↑' : '↓'}</span>
-                   <span className="ml-1">R$ {m.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
-                 </div>
-               </div>
-             ))
+               );
+             })
           ) : (
-             <div className="py-12 text-center">
-                <div className="flex flex-col items-center gap-2">
-                  <ArrowLeftRight className="h-8 w-8 text-muted-foreground/20" />
-                  <p className="text-sm text-muted-foreground">Nenhuma movimentação encontrada.</p>
+             <div className="py-16 text-center">
+                <div className="flex flex-col items-center gap-3">
+                  <ArrowLeftRight className="h-10 w-10 text-muted-foreground/30" />
+                  <p className="text-sm font-medium text-muted-foreground">Nenhuma movimentação encontrada.</p>
                 </div>
              </div>
           )}

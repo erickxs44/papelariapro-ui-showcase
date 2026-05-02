@@ -186,31 +186,30 @@ function Estoque() {
 
       <div className="md:hidden space-y-2.5">
         {filtered.map((i) => (
-          <div key={i.id || i.name} className="rounded-2xl border border-border/60 bg-surface/70 p-3.5 shadow-sm flex flex-col gap-2">
+          <div key={i.id || i.name} className="rounded-2xl border border-border/60 bg-surface/70 p-3.5 shadow-sm flex flex-col gap-2 hover:bg-elevated/40 transition-colors">
             <div className="flex justify-between items-start gap-3">
               <div className="min-w-0 flex-1">
-                <h3 className="font-semibold text-base leading-tight truncate">{i.name}</h3>
-                <p className="text-xs text-muted-foreground mt-0.5">{i.cat}</p>
+                <h3 className="font-semibold text-base leading-tight truncate text-foreground">{i.name}</h3>
+                <div className="flex items-center gap-2 mt-1">
+                  <p className="text-[11px] text-muted-foreground">{i.cat}</p>
+                  <span className="text-[11px] font-black text-electric bg-electric/10 px-1.5 py-0.5 rounded-md">Qtd: {i.qty}</span>
+                </div>
               </div>
               <span className={`shrink-0 inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${tone[i.level]}`}>
                 {i.level}
               </span>
             </div>
             
-            <div className="flex items-center justify-between pt-2 border-t border-border/30">
+            <div className="flex items-center justify-between pt-2.5 border-t border-border/30">
               <div className="flex items-center gap-4">
                 <div>
-                  <p className="text-[10px] text-muted-foreground uppercase font-bold">Preço</p>
+                  <p className="text-[10px] text-muted-foreground uppercase font-bold">Preço Unitário</p>
                   <p className="font-bold text-electric text-sm leading-tight">R$ {i.price.toFixed(2)}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] text-muted-foreground uppercase font-bold">Estoque</p>
-                  <p className="font-bold text-sm leading-tight">{i.qty}</p>
                 </div>
               </div>
               <button 
                 onClick={() => openDiscountModal(i.id as string, i.name)}
-                className="inline-flex items-center justify-center p-2.5 bg-destructive/10 text-destructive rounded-lg hover:bg-destructive/20 transition-colors active:scale-95"
+                className="inline-flex items-center justify-center p-2 bg-destructive/10 text-destructive rounded-lg hover:bg-destructive/20 transition-colors active:scale-95"
                 title="Descontar Produto"
               >
                 <Minus className="w-4 h-4" />

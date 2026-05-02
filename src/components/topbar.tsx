@@ -1,10 +1,29 @@
-import { Bell, Search, Sun, Moon, User } from "lucide-react";
+import { Bell, Search, Sun, Moon, User, Menu } from "lucide-react";
 import { useTheme } from "./theme-provider";
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "./ui/sheet";
+import { SidebarContent } from "./app-sidebar";
+import { useState } from "react";
 
 export function Topbar() {
   const { theme, toggle } = useTheme();
+  const [isOpen, setIsOpen] = useState(false);
+
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-border/60 bg-background/70 px-4 backdrop-blur-xl md:px-8">
+      <div className="md:hidden">
+        <Sheet open={isOpen} onOpenChange={setIsOpen}>
+          <SheetTrigger asChild>
+            <button className="grid h-10 w-10 place-items-center rounded-2xl border border-border/60 bg-surface/60 text-muted-foreground transition hover:text-foreground">
+              <Menu className="h-4 w-4" />
+            </button>
+          </SheetTrigger>
+          <SheetContent side="left" className="w-[280px] p-4 pt-10">
+            <SheetTitle className="sr-only">Menu de Navegação</SheetTitle>
+            <SheetDescription className="sr-only">Opções de navegação do sistema</SheetDescription>
+            <SidebarContent onNavClick={() => setIsOpen(false)} />
+          </SheetContent>
+        </Sheet>
+      </div>
       <div className="relative flex-1 max-w-md">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <input

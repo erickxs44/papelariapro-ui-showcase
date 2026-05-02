@@ -11,7 +11,7 @@ const items = [
   { to: "/configuracoes", label: "Configurações", icon: Settings },
 ] as const;
 
-export function AppSidebar() {
+export function SidebarContent({ onNavClick }: { onNavClick?: () => void }) {
   const { pathname } = useLocation();
   const navigate = useNavigate();
 
@@ -20,9 +20,10 @@ export function AppSidebar() {
     toast.info("Sessão encerrada.");
     navigate({ to: "/login" });
   };
+
   return (
-    <aside className="hidden md:flex w-64 shrink-0 flex-col gap-2 border-r border-border/60 bg-sidebar px-4 py-6">
-      <Link to="/dashboard" className="flex items-center gap-2 px-2 pb-6">
+    <div className="flex h-full w-full flex-col gap-2">
+      <Link to="/dashboard" onClick={onNavClick} className="flex items-center gap-2 px-2 pb-6">
         <div className="grid h-10 w-10 place-items-center rounded-2xl bg-gradient-to-br from-electric to-aqua">
           <PenLine className="h-5 w-5 text-background" />
         </div>
@@ -38,6 +39,7 @@ export function AppSidebar() {
             <Link
               key={to}
               to={to}
+              onClick={onNavClick}
               className={
                 "group flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium transition-all " +
                 (active
@@ -53,7 +55,10 @@ export function AppSidebar() {
         })}
         
         <button
-          onClick={handleLogout}
+          onClick={() => {
+            if (onNavClick) onNavClick();
+            handleLogout();
+          }}
           className="mt-2 flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all"
         >
           <LogOut className="h-4 w-4" />
@@ -64,6 +69,14 @@ export function AppSidebar() {
         <p className="font-semibold text-foreground">Plano Pro</p>
         <p className="mt-1">Tudo desbloqueado para sua loja.</p>
       </div>
+    </div>
+  );
+}
+
+export function AppSidebar() {
+  return (
+    <aside className="hidden md:flex w-64 shrink-0 flex-col gap-2 border-r border-border/60 bg-sidebar px-4 py-6">
+      <SidebarContent />
     </aside>
   );
 }

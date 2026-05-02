@@ -26,42 +26,42 @@ export const Route = createFileRoute("/_app/pdv")({
   component: Pdv,
 });
 
-const services = [
-  { name: "Xerox P&B", price: 0.5, icon: Copy },
-  { name: "Xerox Color", price: 1.5, icon: Palette },
-  { name: "Impressão", price: 2.0, icon: Printer },
-  { name: "Encadernação", price: 8.0, icon: BookOpen },
-];
-
-const quickProducts = [
-  "Caderno Universitário 200fls",
-  "Caneta BIC Azul",
-  "Lápis HB",
-  "Borracha Branca",
-  "Régua 30cm",
-  "Marca Texto",
-  "Cola Bastão",
-  "Tesoura Escolar",
-];
-
-const listasEscolares = [
-  {
-    name: "Lista Básica 1º Ano",
-    items: ["Caderno Universitário 200fls", "Lápis HB", "Borracha Branca", "Tesoura Escolar"]
-  },
-  {
-    name: "Kit Desenho",
-    items: ["Lápis de Cor 24 cores", "Tinta Guache 6 cores", "Lápis HB"]
-  }
-];
+const iconMap: Record<string, any> = {
+  Copy,
+  Palette,
+  Printer,
+  BookOpen
+};
 
 type CartItem = { id?: string; name: string; price: number; qty: number };
 
 function Pdv() {
-  const { items, checkout, xeroxCount } = useStore();
+  const { items, checkout, xeroxCount, services, quickProducts, listasEscolares, addService, fiados } = useStore();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [q, setQ] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"Dinheiro" | "Cartão" | "Pix" | "Fiado">("Dinheiro");
+
+  const [isFiadoModalOpen, setIsFiadoModalOpen] = useState(false);
+  const [selectedFiadoClient, setSelectedFiadoClient] = useState("");
+
+  // Novo Produto/Serviço modal
+  const [isNewServiceModalOpen, setIsNewServiceModalOpen] = useState(false);
+  const [newServiceName, setNewServiceName] = useState("");
+  const [newServicePrice, setNewServicePrice] = useState("");
+
+  const handleAddNewService = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newServiceName || !newServicePrice) return;
+    addService({
+      name: newServiceName,
+      price: parseFloat(newServicePrice.replace(",", ".")),
+      icon: "Copy" // Default icon
+    });
+    setIsNewServiceModalOpen(false);
+    setNewServiceName("");
+    setNewServicePrice("");
+    toast.success("Serviço adicionado com sucesso!");
+  };
 
   const add = (name: string, price: number, stockQty?: number, id?: string) => {
     if (stockQty !== undefined && stockQty <= 0) {
@@ -101,10 +101,19 @@ function Pdv() {
 
   const handleCheckout = async () => {
     if (cart.length === 0) return;
+    if (paymentMethod === "Fiado") {
+      setIsFiadoModalOpen(true);
+      return;
+    }
+    await processCheckout(paymentMethod);
+  };
+
+  const processCheckout = async (method: string, fiadoId?: string) => {
     toast.promise(
       async () => {
-        await checkout(cart, paymentMethod);
+        await checkout(cart, method, fiadoId);
         setCart([]);
+        if (fiadoId) setIsFiadoModalOpen(false);
       },
       {
         loading: 'Salvando venda...',
@@ -142,9 +151,20 @@ function Pdv() {
       className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1fr_380px]"
     >
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight glow-text">PDV</h1>
-          <p className="text-sm text-muted-foreground">Venda rápida e fluida.</p>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight glow-text">PDV</h1>
+            <p className="text-sm text-muted-foreground">Venda rápida e fluida.</p>
+          </div>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setIsNewServiceModalOpen(true)}
+            className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-electric to-aqua px-5 py-2.5 text-sm font-bold text-white shadow-[0_0_15px_rgba(34,211,238,0.4)] transition hover:opacity-90 w-fit"
+          >
+            <Plus className="h-4 w-4" />
+            Adicionar Produto/Serviço
+          </motion.button>
         </div>
 
         <div className="relative">
@@ -184,78 +204,87 @@ function Pdv() {
 
         {!q && (
           <>
-            <div>
-              <div className="mb-3 flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Serviços rápidos</p>
-                <div className="rounded-full bg-electric/10 px-3 py-1 text-xs font-bold text-electric">
-                  Xerox hoje: {xeroxCount}
+            {services.length > 0 && (
+              <div>
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Serviços rápidos</p>
+                  <div className="rounded-full bg-electric/10 px-3 py-1 text-xs font-bold text-electric">
+                    Xerox hoje: {xeroxCount}
+                  </div>
                 </div>
-              </div>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            {services.map((s) => (
-              <button
-                key={s.name}
-                onClick={() => add(s.name, s.price)}
-                className="group flex flex-col items-center justify-center gap-3 rounded-3xl border border-aqua/20 bg-surface/40 p-5 text-center transition hover:border-aqua/50 hover:bg-surface/60 hover:scale-[1.02] card-inset"
-              >
-                <div className="grid h-12 w-12 place-items-center rounded-2xl bg-aqua/10 text-aqua transition-colors group-hover:bg-aqua/20">
-                  <s.icon className="h-6 w-6" />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-foreground transition-colors group-hover:text-aqua">{s.name}</p>
-                  <p className="text-[11px] font-black text-muted-foreground">R$ {s.price.toFixed(2)}</p>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-            <div>
-              <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Listas Escolares</p>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                {listasEscolares.map((lista) => (
-                  <button
-                    key={lista.name}
-                    onClick={() => addList(lista.name, lista.items)}
-                    className="flex items-center gap-3 rounded-2xl border border-border/60 bg-surface/70 p-4 transition hover:border-amber-400/50 hover:bg-elevated card-inset"
-                  >
-                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-amber-400/20 text-amber-500">
-                      <GraduationCap className="h-5 w-5" />
-                    </div>
-                    <div className="text-left">
-                      <p className="text-sm font-bold">{lista.name}</p>
-                      <p className="text-xs text-muted-foreground">{lista.items.length} itens inclusos</p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Produtos populares</p>
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                {quickProducts.map((pName) => {
-                  const p = items.find(i => i.name === pName);
-                  if (!p) return null;
-                  return (
-                    <button
-                      key={p.name}
-                      disabled={p.qty <= 0}
-                      onClick={() => add(p.name, p.price, p.qty, p.id)}
-                      className="rounded-2xl border border-border/60 bg-surface/70 p-4 text-left transition hover:border-electric/50 hover:bg-elevated card-inset disabled:opacity-50 disabled:cursor-not-allowed group relative"
-                    >
-                      <p className="text-sm font-semibold truncate">{p.name}</p>
-                      <p className="mt-1 text-xs text-aqua">R$ {p.price.toFixed(2)}</p>
-                      {p.qty <= 0 && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-background/60 rounded-2xl backdrop-blur-[1px]">
-                          <span className="flex items-center gap-1 text-xs font-bold text-destructive bg-destructive/10 px-2 py-1 rounded-full"><PackageX className="w-3 h-3"/> Indisponível</span>
+                <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                  {services.map((s) => {
+                    const Icon = iconMap[s.icon] || Copy;
+                    return (
+                      <button
+                        key={s.name}
+                        onClick={() => add(s.name, s.price)}
+                        className="group flex flex-col items-center justify-center gap-3 rounded-3xl border border-aqua/20 bg-surface/40 p-5 text-center transition hover:border-aqua/50 hover:bg-surface/60 hover:scale-[1.02] card-inset"
+                      >
+                        <div className="grid h-12 w-12 place-items-center rounded-2xl bg-aqua/10 text-aqua transition-colors group-hover:bg-aqua/20">
+                          <Icon className="h-6 w-6" />
                         </div>
-                      )}
-                    </button>
-                  );
-                })}
+                        <div>
+                          <p className="text-sm font-bold text-foreground transition-colors group-hover:text-aqua">{s.name}</p>
+                          <p className="text-[11px] font-black text-muted-foreground">R$ {s.price.toFixed(2)}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
+
+            {listasEscolares.length > 0 && (
+              <div>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Listas Escolares</p>
+                <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                  {listasEscolares.map((lista) => (
+                    <button
+                      key={lista.name}
+                      onClick={() => addList(lista.name, lista.items)}
+                      className="flex items-center gap-3 rounded-2xl border border-border/60 bg-surface/70 p-4 transition hover:border-amber-400/50 hover:bg-elevated card-inset"
+                    >
+                      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-amber-400/20 text-amber-500">
+                        <GraduationCap className="h-5 w-5" />
+                      </div>
+                      <div className="text-left">
+                        <p className="text-sm font-bold">{lista.name}</p>
+                        <p className="text-xs text-muted-foreground">{lista.items.length} itens inclusos</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {quickProducts.length > 0 && (
+              <div>
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Produtos populares</p>
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                  {quickProducts.map((pName) => {
+                    const p = items.find(i => i.name === pName);
+                    if (!p) return null;
+                    return (
+                      <button
+                        key={p.name}
+                        disabled={p.qty <= 0}
+                        onClick={() => add(p.name, p.price, p.qty, p.id)}
+                        className="rounded-2xl border border-border/60 bg-surface/70 p-4 text-left transition hover:border-electric/50 hover:bg-elevated card-inset disabled:opacity-50 disabled:cursor-not-allowed group relative"
+                      >
+                        <p className="text-sm font-semibold truncate">{p.name}</p>
+                        <p className="mt-1 text-xs text-aqua">R$ {p.price.toFixed(2)}</p>
+                        {p.qty <= 0 && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-background/60 rounded-2xl backdrop-blur-[1px]">
+                            <span className="flex items-center gap-1 text-xs font-bold text-destructive bg-destructive/10 px-2 py-1 rounded-full"><PackageX className="w-3 h-3"/> Indisponível</span>
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
@@ -374,6 +403,126 @@ function Pdv() {
           <span className="text-[10px] font-bold uppercase opacity-80 text-background">Pagar com {paymentMethod}</span>
         </motion.button>
       </aside>
+
+      {/* Modal Adicionar Produto/Serviço */}
+      <AnimatePresence>
+        {isNewServiceModalOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="w-full max-w-md rounded-3xl border border-white/10 bg-surface p-6 shadow-2xl relative glass-card"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold">Novo Serviço/Produto</h2>
+                <button 
+                  onClick={() => setIsNewServiceModalOpen(false)}
+                  className="rounded-full p-2 text-muted-foreground hover:bg-white/10 hover:text-white transition"
+                >
+                  <PackageX className="h-5 w-5" />
+                </button>
+              </div>
+              <form onSubmit={handleAddNewService} className="space-y-4">
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-muted-foreground">Nome do Produto/Serviço</label>
+                  <input
+                    type="text"
+                    required
+                    value={newServiceName}
+                    onChange={(e) => setNewServiceName(e.target.value)}
+                    className="w-full rounded-2xl border border-white/10 bg-elevated p-3 focus:border-electric focus:outline-none transition"
+                    placeholder="Ex: Plastificação"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-muted-foreground">Valor (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    required
+                    value={newServicePrice}
+                    onChange={(e) => setNewServicePrice(e.target.value)}
+                    className="w-full rounded-2xl border border-white/10 bg-elevated p-3 focus:border-electric focus:outline-none transition"
+                    placeholder="Ex: 5,00"
+                  />
+                </div>
+                <div className="mt-6 flex justify-end">
+                  <motion.button 
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.95 }}
+                    type="submit"
+                    className="rounded-2xl bg-electric px-6 py-3 font-bold text-white shadow-lg shadow-electric/30 transition hover:bg-electric/90 w-full"
+                  >
+                    Salvar novo produto
+                  </motion.button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Selecionar Cliente Fiado */}
+      <AnimatePresence>
+        {isFiadoModalOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="w-full max-w-md rounded-3xl border border-white/10 bg-surface p-6 shadow-2xl relative glass-card"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold">Venda no Fiado</h2>
+                <button 
+                  onClick={() => setIsFiadoModalOpen(false)}
+                  className="rounded-full p-2 text-muted-foreground hover:bg-white/10 hover:text-white transition"
+                >
+                  <PackageX className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-muted-foreground">Selecione o Cliente</label>
+                  <select
+                    value={selectedFiadoClient}
+                    onChange={(e) => setSelectedFiadoClient(e.target.value)}
+                    className="w-full rounded-2xl border border-white/10 bg-elevated p-3 focus:border-electric focus:outline-none transition"
+                  >
+                    <option value="" disabled>Selecione um cliente...</option>
+                    {fiados?.map(f => (
+                      <option key={f.id} value={f.id}>{f.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="mt-6 flex justify-end">
+                  <motion.button 
+                    whileHover={selectedFiadoClient ? { scale: 1.02 } : {}}
+                    whileTap={selectedFiadoClient ? { scale: 0.95 } : {}}
+                    onClick={() => processCheckout("Fiado PDV", selectedFiadoClient)}
+                    disabled={!selectedFiadoClient}
+                    className="rounded-2xl bg-electric px-6 py-3 font-bold text-white shadow-lg shadow-electric/30 transition hover:bg-electric/90 w-full disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Confirmar Venda
+                  </motion.button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }

@@ -1,17 +1,25 @@
-import { Link, useLocation } from "@tanstack/react-router";
-import { LayoutDashboard, ScanBarcode, Package, Settings, PenLine, ArrowLeftRight, ReceiptText } from "lucide-react";
+import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+import { LayoutDashboard, ScanBarcode, Package, Settings, PenLine, ArrowLeftRight, ReceiptText, LogOut } from "lucide-react";
+import { toast } from "sonner";
 
 const items = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/pdv", label: "PDV", icon: ScanBarcode },
-  { to: "/fiados", label: "Fiados", icon: ReceiptText },
   { to: "/movimentacoes", label: "Movimentações", icon: ArrowLeftRight },
   { to: "/estoque", label: "Estoque", icon: Package },
+  { to: "/fiados", label: "Fiados", icon: ReceiptText },
   { to: "/configuracoes", label: "Configurações", icon: Settings },
 ] as const;
 
 export function AppSidebar() {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    localStorage.removeItem("isLoggedIn");
+    toast.info("Sessão encerrada.");
+    navigate({ to: "/login" });
+  };
   return (
     <aside className="hidden md:flex w-64 shrink-0 flex-col gap-2 border-r border-border/60 bg-sidebar px-4 py-6">
       <Link to="/dashboard" className="flex items-center gap-2 px-2 pb-6">
@@ -43,6 +51,14 @@ export function AppSidebar() {
             </Link>
           );
         })}
+        
+        <button
+          onClick={handleLogout}
+          className="mt-2 flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all"
+        >
+          <LogOut className="h-4 w-4" />
+          Sair
+        </button>
       </nav>
       <div className="mt-auto rounded-2xl border border-border/60 bg-surface/60 p-4 text-xs text-muted-foreground card-inset">
         <p className="font-semibold text-foreground">Plano Pro</p>

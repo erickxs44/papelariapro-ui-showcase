@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, User, Phone, Calendar, AlertCircle, CheckCircle2, ShieldCheck, X } from "lucide-react";
+import { Search, User, Phone, Calendar, AlertCircle, CheckCircle2, ShieldCheck, X, Plus, FileText, ArrowUpRight, ArrowDownLeft } from "lucide-react";
 import { useStore } from "../lib/store";
 import { toast } from "sonner";
 
@@ -20,21 +20,78 @@ type Fiado = {
 };
 
 function Fiados() {
-  const { fiados } = useStore();
+  const { fiados, addFiado, payFiado, addFiadoTransaction, getFiadoHistory } = useStore();
   const [search, setSearch] = useState("");
   const [selectedFiado, setSelectedFiado] = useState<any | null>(null);
+  
+  const [baixaValue, setBaixaValue] = useState("");
+
+  const [isAddTransactionModalOpen, setIsAddTransactionModalOpen] = useState(false);
+  const [transactionFiado, setTransactionFiado] = useState<any | null>(null);
+  const [transactionDesc, setTransactionDesc] = useState("");
+  const [transactionValue, setTransactionValue] = useState("");
+  
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [historyFiado, setHistoryFiado] = useState<any | null>(null);
+  const [historyItems, setHistoryItems] = useState<any[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   const filtered = (fiados || []).filter(f => f.name.toLowerCase().includes(search.toLowerCase()));
 
-  const totalAtraso = (fiados || []).filter(f => f.status === "Em Atraso").reduce((acc, f) => acc + f.amount, 0);
-  const totalPendente = (fiados || []).filter(f => f.status === "Pendente").reduce((acc, f) => acc + f.amount, 0);
 
-  const handleBaixa = () => {
-    if (!selectedFiado) return;
-    // In a real app, this would update Supabase status to 'Pago'
-    // For now, we'll just show success and close modal since resetData is the focus
-    toast.success(`Baixa realizada com sucesso para ${selectedFiado.name}!`);
+
+  const handleBaixa = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedFiado || !baixaValue) return;
+    const val = parseFloat(baixaValue.replace(",", "."));
+    if (val <= 0) return;
+    await payFiado(selectedFiado.id, val);
+    toast.success(`Baixa de R$ ${val.toFixed(2)} realizada com sucesso para ${selectedFiado.name}!`);
     setSelectedFiado(null);
+    setBaixaValue("");
+  };
+
+  const handleAddTransaction = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!transactionFiado || !transactionDesc || !transactionValue) return;
+    const val = parseFloat(transactionValue.replace(",", "."));
+    if (val <= 0) return;
+    await addFiadoTransaction(transactionFiado.id, val, transactionDesc);
+    toast.success(`Fiado adicionado para ${transactionFiado.name}!`);
+    setIsAddTransactionModalOpen(false);
+    setTransactionFiado(null);
+    setTransactionDesc("");
+    setTransactionValue("");
+  };
+
+  const [isNewClientModalOpen, setIsNewClientModalOpen] = useState(false);
+  const [newClientName, setNewClientName] = useState("");
+  const [newClientPhone, setNewClientPhone] = useState("");
+
+  const handleNewClient = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newClientName || !newClientPhone) return;
+    await addFiado({
+      id: Math.random().toString(36).substr(2, 9),
+      name: newClientName,
+      phone: newClientPhone,
+      amount: 0,
+      dueDate: new Date(new Date().setDate(new Date().getDate() + 30)),
+      status: "Pendente"
+    });
+    setIsNewClientModalOpen(false);
+    setNewClientName("");
+    setNewClientPhone("");
+    toast.success("Cliente cadastrado com sucesso!");
+  };
+
+  const openHistory = async (fiado: any) => {
+    setHistoryFiado(fiado);
+    setIsHistoryModalOpen(true);
+    setIsLoadingHistory(true);
+    const history = await getFiadoHistory(fiado.id);
+    setHistoryItems(history);
+    setIsLoadingHistory(false);
   };
 
   return (
@@ -45,25 +102,25 @@ function Fiados() {
       className="mx-auto max-w-7xl pb-12"
     >
       <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4 ml-2">
-        <div>
-          <p className="text-sm font-medium text-aqua">Controle de Clientes</p>
-          <h1 className="mt-1 text-3xl font-bold tracking-tight md:text-4xl glow-text">Gestão de Fiados</h1>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full">
+          <div>
+            <p className="text-sm font-medium text-aqua">Controle de Clientes</p>
+            <h1 className="mt-1 text-3xl font-bold tracking-tight md:text-4xl glow-text">Gestão de Fiados</h1>
+          </div>
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setIsNewClientModalOpen(true)}
+            className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-electric to-aqua px-5 py-2.5 text-sm font-bold text-white shadow-[0_0_15px_rgba(34,211,238,0.4)] transition hover:opacity-90 w-fit"
+          >
+            <Plus className="h-4 w-4" />
+            Novo Cliente
+          </motion.button>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-8">
-        <motion.div whileHover={{ y: -5 }} className="rounded-3xl glass-card p-6 flex flex-col justify-center shadow-lg relative overflow-hidden">
-          <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-destructive/20 blur-2xl"></div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Total em Atraso</p>
-          <h2 className="text-4xl font-black text-destructive">R$ {totalAtraso.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</h2>
-        </motion.div>
-        
-        <motion.div whileHover={{ y: -5 }} className="rounded-3xl glass-card p-6 flex flex-col justify-center shadow-lg relative overflow-hidden">
-          <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-aqua/20 blur-2xl"></div>
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Total Pendente</p>
-          <h2 className="text-4xl font-black text-aqua">R$ {totalPendente.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</h2>
-        </motion.div>
-      </div>
+      {/* Summary cards removed by request */}
+
 
       <div className="rounded-3xl glass-card p-6 mb-8">
         <div className="relative mb-6">
@@ -98,29 +155,50 @@ function Fiados() {
                       {fiado.status}
                     </span>
                   </div>
-                  <h3 className="text-xl font-bold mb-1">{fiado.name}</h3>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
-                    <Phone className="h-3.5 w-3.5" />
-                    {fiado.phone}
+                  <div className="flex justify-between items-center w-full">
+                    <h3 className="text-xl font-bold">{fiado.name}</h3>
+                    <div className="flex gap-2">
+                      <motion.button 
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => openHistory(fiado)}
+                        className="flex h-10 w-10 items-center justify-center rounded-full bg-aqua/20 text-aqua hover:bg-aqua hover:text-white transition-colors"
+                        title="Ver Extrato"
+                      >
+                        <FileText className="h-5 w-5" />
+                      </motion.button>
+                      <motion.button 
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.9 }}
+                        onClick={() => {
+                          setTransactionFiado(fiado);
+                          setIsAddTransactionModalOpen(true);
+                        }}
+                        className="flex h-10 w-10 items-center justify-center rounded-full bg-electric/20 text-electric hover:bg-electric hover:text-white transition-colors"
+                        title="Adicionar Fiado"
+                      >
+                        <Plus className="h-5 w-5" />
+                      </motion.button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
-                    <Calendar className="h-3.5 w-3.5" />
-                    Vencimento: {fiado.dueDate.toLocaleDateString("pt-BR")}
                   </div>
-                </div>
-                
-                <div className="mt-auto border-t border-border/40 pt-4 flex items-center justify-between">
-                  <span className="text-2xl font-black text-white">R$ {fiado.amount.toFixed(2)}</span>
-                  <motion.button 
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => setSelectedFiado(fiado)}
-                    className="flex items-center gap-1.5 rounded-xl bg-electric px-4 py-2 text-sm font-bold text-white shadow-lg shadow-electric/30 transition hover:bg-electric/90"
-                  >
-                    <ShieldCheck className="h-4 w-4" />
-                    Dar Baixa
-                  </motion.button>
-                </div>
+                  
+                  <div className="mt-6 border-t border-border/40 pt-4 flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Dívida Total</span>
+                      <span className="text-2xl font-black text-white">R$ {fiado.amount.toFixed(2)}</span>
+                    </div>
+                    
+                    <motion.button 
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setSelectedFiado(fiado)}
+                      className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-electric px-4 py-3 text-sm font-bold text-white shadow-lg shadow-electric/30 transition hover:bg-electric/90"
+                    >
+                      <ShieldCheck className="h-4 w-4" />
+                      Baixar / Descontar
+                    </motion.button>
+                  </div>
               </motion.div>
             ))}
           </AnimatePresence>
@@ -152,35 +230,263 @@ function Fiados() {
                 <CheckCircle2 className="h-8 w-8" />
               </div>
               
-              <div className="text-center mb-8">
-                <h2 className="text-2xl font-bold mb-2">Confirmar Baixa</h2>
-                <p className="text-muted-foreground text-sm">
-                  Deseja registrar o pagamento de <span className="text-white font-bold">{selectedFiado.name}</span> no valor de <span className="text-electric font-bold">R$ {selectedFiado.amount.toFixed(2)}</span>?
-                </p>
+              <form onSubmit={handleBaixa}>
+                <div className="text-center mb-6">
+                  <h2 className="text-2xl font-bold mb-2">Confirmar Baixa</h2>
+                  <p className="text-muted-foreground text-sm">
+                    Quanto <span className="text-white font-bold">{selectedFiado.name}</span> está pagando?
+                  </p>
+                </div>
+
+                <div className="mb-6">
+                  <input
+                    type="number"
+                    required
+                    min="0.01"
+                    step="0.01"
+                    value={baixaValue}
+                    onChange={(e) => setBaixaValue(e.target.value)}
+                    className="w-full rounded-2xl border border-white/10 bg-elevated p-4 text-center text-2xl font-black text-electric focus:border-electric focus:outline-none transition"
+                    placeholder="R$ 0,00"
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <motion.button 
+                    type="button"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => { setSelectedFiado(null); setBaixaValue(""); }}
+                    className="flex-1 rounded-2xl border border-white/10 bg-transparent py-3.5 text-sm font-bold transition hover:bg-white/5"
+                  >
+                    Cancelar
+                  </motion.button>
+                  <motion.button 
+                    type="submit"
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.95 }}
+                    className="flex-1 rounded-2xl bg-gradient-to-r from-aqua to-electric py-3.5 text-sm font-bold text-white shadow-[0_0_20px_rgba(111,0,255,0.5)] transition btn-glow"
+                  >
+                    Confirmar
+                  </motion.button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Add Transaction */}
+      <AnimatePresence>
+        {isAddTransactionModalOpen && transactionFiado && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="w-full max-w-md rounded-3xl border border-white/10 bg-surface p-6 shadow-2xl relative glass-card"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold">Adicionar Fiado</h2>
+                <button 
+                  onClick={() => setIsAddTransactionModalOpen(false)}
+                  className="rounded-full p-2 text-muted-foreground hover:bg-white/10 hover:text-white transition"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <form onSubmit={handleAddTransaction} className="space-y-4">
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-muted-foreground">Descrição</label>
+                  <input
+                    type="text"
+                    required
+                    value={transactionDesc}
+                    onChange={(e) => setTransactionDesc(e.target.value)}
+                    className="w-full rounded-2xl border border-white/10 bg-elevated p-3 focus:border-electric focus:outline-none transition"
+                    placeholder="Ex: Fiado de Ramon"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-muted-foreground">Valor da Venda (R$)</label>
+                  <input
+                    type="number"
+                    required
+                    min="0.01"
+                    step="0.01"
+                    disabled={transactionDesc.length === 0}
+                    value={transactionValue}
+                    onChange={(e) => setTransactionValue(e.target.value)}
+                    className="w-full rounded-2xl border border-white/10 bg-elevated p-3 focus:border-electric focus:outline-none transition disabled:opacity-50 disabled:cursor-not-allowed"
+                    placeholder="0.00"
+                  />
+                </div>
+                <motion.button 
+                  whileHover={transactionDesc.length > 0 ? { scale: 1.02 } : {}}
+                  whileTap={transactionDesc.length > 0 ? { scale: 0.95 } : {}}
+                  type="submit"
+                  disabled={transactionDesc.length === 0}
+                  className="mt-4 w-full rounded-2xl bg-electric py-3.5 text-sm font-bold text-white shadow-lg shadow-electric/30 transition hover:bg-electric/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Confirmar Fiado
+                </motion.button>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Novo Cliente */}
+      <AnimatePresence>
+        {isNewClientModalOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="w-full max-w-md rounded-3xl border border-white/10 bg-surface p-6 shadow-2xl relative glass-card"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold">Cadastrar novo cliente</h2>
+                <button 
+                  onClick={() => setIsNewClientModalOpen(false)}
+                  className="rounded-full p-2 text-muted-foreground hover:bg-white/10 hover:text-white transition"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <form onSubmit={handleNewClient} className="space-y-4">
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-muted-foreground">Nome do Cliente</label>
+                  <input
+                    type="text"
+                    required
+                    value={newClientName}
+                    onChange={(e) => setNewClientName(e.target.value)}
+                    className="w-full rounded-2xl border border-white/10 bg-elevated p-3 focus:border-electric focus:outline-none transition"
+                    placeholder="Ex: Maria Silva"
+                  />
+                </div>
+                <div>
+                  <label className="mb-2 block text-sm font-semibold text-muted-foreground">Número de Contato</label>
+                  <input
+                    type="tel"
+                    required
+                    value={newClientPhone}
+                    onChange={(e) => setNewClientPhone(e.target.value)}
+                    className="w-full rounded-2xl border border-white/10 bg-elevated p-3 focus:border-electric focus:outline-none transition"
+                    placeholder="Ex: (11) 99999-9999"
+                  />
+                </div>
+                <div className="mt-6 flex justify-end">
+                  <motion.button 
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.95 }}
+                    type="submit"
+                    className="rounded-2xl bg-electric px-6 py-3 font-bold text-white shadow-lg shadow-electric/30 transition hover:bg-electric/90 w-full"
+                  >
+                    Cadastrar
+                  </motion.button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Extrato Detalhado */}
+      <AnimatePresence>
+        {isHistoryModalOpen && historyFiado && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/40 backdrop-blur-md"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="w-full max-w-lg max-h-[85vh] rounded-[2.5rem] border border-white/10 bg-surface/90 shadow-2xl relative glass-card flex flex-col overflow-hidden"
+            >
+              <div className="p-8 border-b border-white/10 shrink-0">
+                <div className="flex justify-between items-start mb-6">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-widest text-aqua">Relatório Detalhado</p>
+                    <h2 className="text-2xl font-black mt-1">{historyFiado.name}</h2>
+                  </div>
+                  <button 
+                    onClick={() => setIsHistoryModalOpen(false)}
+                    className="rounded-full p-2 text-muted-foreground hover:bg-white/10 hover:text-white transition"
+                  >
+                    <X className="h-6 w-6" />
+                  </button>
+                </div>
+                
+                <div className="rounded-2xl bg-white/5 p-4 border border-white/5 flex items-center justify-between">
+                  <span className="text-sm font-semibold text-muted-foreground uppercase">Saldo Devedor Atual</span>
+                  <span className="text-2xl font-black text-white">
+                    R$ {historyItems.reduce((acc, item) => item.tipo === 'Compra' ? acc + item.valor : acc - item.valor, 0).toFixed(2)}
+                  </span>
+                </div>
               </div>
 
-              <div className="flex gap-3">
-                <motion.button 
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setSelectedFiado(null)}
-                  className="flex-1 rounded-2xl border border-white/10 bg-transparent py-3.5 text-sm font-bold transition hover:bg-white/5"
-                >
-                  Cancelar
-                </motion.button>
-                <motion.button 
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={handleBaixa}
-                  className="flex-1 rounded-2xl bg-gradient-to-r from-aqua to-electric py-3.5 text-sm font-bold text-white shadow-[0_0_20px_rgba(111,0,255,0.5)] transition btn-glow"
-                >
-                  Confirmar
-                </motion.button>
+              <div className="flex-1 overflow-y-auto p-8 pt-4 custom-scrollbar">
+                {isLoadingHistory ? (
+                  <div className="flex flex-col items-center justify-center py-12 gap-4">
+                    <div className="h-8 w-8 animate-spin rounded-full border-2 border-aqua/30 border-t-aqua" />
+                    <p className="text-sm text-muted-foreground animate-pulse">Carregando histórico...</p>
+                  </div>
+                ) : historyItems.length === 0 ? (
+                  <div className="text-center py-12">
+                    <p className="text-muted-foreground italic">Nenhuma movimentação registrada.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {historyItems.map((item, i) => (
+                      <motion.div 
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.05 }}
+                        key={item.id} 
+                        className="flex items-center justify-between p-4 rounded-2xl bg-elevated/40 border border-white/5 hover:border-white/10 transition-colors"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className={`grid h-10 w-10 place-items-center rounded-xl ${item.tipo === 'Compra' ? 'bg-destructive/10 text-destructive' : 'bg-aqua/10 text-aqua'}`}>
+                            {item.tipo === 'Compra' ? <ArrowUpRight className="h-5 w-5" /> : <ArrowDownLeft className="h-5 w-5" />}
+                          </div>
+                          <div>
+                            <p className="font-bold text-sm leading-tight">{item.descricao}</p>
+                            <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1.5 uppercase tracking-wider font-semibold">
+                              <Calendar className="h-3 w-3" />
+                              {new Date(item.data).toLocaleString('pt-BR')}
+                            </p>
+                          </div>
+                        </div>
+                        <div className={`text-sm font-black ${item.tipo === 'Compra' ? 'text-destructive' : 'text-aqua'}`}>
+                          {item.tipo === 'Compra' ? '+' : '-'} R$ {item.valor.toFixed(2)}
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
               </div>
             </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
+
     </motion.div>
   );
 }
+

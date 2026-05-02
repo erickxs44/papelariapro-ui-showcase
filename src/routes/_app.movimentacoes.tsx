@@ -45,6 +45,7 @@ function Movimentacoes() {
           id,
           valor_total,
           data_venda,
+          metodo_pagamento,
           itens_venda (
             quantidade,
             produto_id
@@ -64,16 +65,37 @@ function Movimentacoes() {
         const itemIds = (s.itens_venda as any[] || []).map(iv => iv.produto_id);
         const itemNames = itemIds.map(id => items.find(i => i.id === id)?.name).filter(Boolean);
         
-        const desc = itemNames.length > 0 
+        let desc = itemNames.length > 0 
           ? `Venda: ${itemNames.slice(0, 2).join(", ")}${itemNames.length > 2 ? "..." : ""}`
           : "Venda PDV";
           
+        let typeVal: "entrada" | "saida" = "entrada";
+        let category = "Venda";
+
+        if (s.metodo_pagamento && s.metodo_pagamento.startsWith("Fiado:")) {
+          desc = `Venda ${s.metodo_pagamento.replace("Fiado: ", "")} - Pendente`;
+          category = "Fiado";
+          typeVal = "saida"; // To make it orange in the UI logic we can use a special type or just keep it entrada and change color logic. Let's use "entrada" but add a special flag, or handle color in UI. Wait, we can't change type easily without changing Movement. Let's add a `isPending` or `metodo` to Movement.
+        } else if (s.metodo_pagamento === "Fiado PDV") {
+          desc = "Venda PDV (Fiado) - Pendente";
+          category = "Fiado";
+          typeVal = "saida"; // we'll use a specific logic for color based on category/type
+        } else if (s.metodo_pagamento && s.metodo_pagamento.startsWith("Baixa Fiado:")) {
+          desc = `Recebimento de Fiado: ${s.metodo_pagamento.replace("Baixa Fiado: ", "")}`;
+          category = "Fiado Pagamento";
+          typeVal = "entrada";
+        } else if (s.metodo_pagamento && s.metodo_pagamento.startsWith("Estoque: ")) {
+          desc = `Venda (Estoque): ${s.metodo_pagamento.replace("Estoque: ", "")}`;
+          category = "Venda";
+          typeVal = "entrada";
+        }
+          
         return {
           id: `v-${s.id}`,
-          type: "entrada",
+          type: typeVal,
           date: new Date(s.data_venda),
           description: desc,
-          category: "Venda",
+          category: category,
           value: s.valor_total
         };
       });
@@ -183,8 +205,8 @@ function Movimentacoes() {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <div className={`flex items-center justify-end gap-1.5 font-black text-base ${m.type === 'entrada' ? 'text-emerald-400' : 'text-red-500'}`}>
-                          <span className="text-lg leading-none">{m.type === 'entrada' ? '↑' : '↓'}</span>
+                        <div className={`flex items-center justify-end gap-1.5 font-black text-base ${m.category === 'Fiado' ? 'text-orange-400' : m.type === 'entrada' ? 'text-emerald-400' : 'text-red-500'}`}>
+                          <span className="text-lg leading-none">{m.category === 'Fiado' ? '⏳' : m.type === 'entrada' ? '↑' : '↓'}</span>
                           <span>R$ {m.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                         </div>
                       </td>

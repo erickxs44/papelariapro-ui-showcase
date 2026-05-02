@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Search, Plus, Filter, X } from "lucide-react";
+import { Search, Plus, Filter, X, Minus } from "lucide-react";
 import { useStore, Cat, calculateLevel } from "../lib/store";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/estoque")({
   head: () => ({ meta: [{ title: "Estoque — PapelariaPro" }] }),
@@ -23,9 +24,16 @@ function Estoque() {
   
   // States for new product
   const [newName, setNewName] = useState("");
-  const [newCostPrice, setNewCostPrice] = useState("");
   const [newPrice, setNewPrice] = useState("");
   const [newQty, setNewQty] = useState("");
+
+  // States for discount modal
+  const [isDiscountModalOpen, setIsDiscountModalOpen] = useState(false);
+  const [discountItemId, setDiscountItemId] = useState<string | null>(null);
+  const [discountItemName, setDiscountItemName] = useState<string>("");
+  const [discountQty, setDiscountQty] = useState("");
+  const [isConfirmingIntegration, setIsConfirmingIntegration] = useState(false);
+  const { discountStock, addStockSale } = useStore();
 
   const filtered = items.filter(
     (i) => (cat === "Todos" || i.cat === cat) && i.name.toLowerCase().includes(q.toLowerCase()),
@@ -33,12 +41,12 @@ function Estoque() {
 
   const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newName || !newPrice || !newQty || !newCostPrice) return;
+    if (!newName || !newPrice || !newQty) return;
     const qtyNum = parseInt(newQty, 10);
     const item = {
       name: newName,
       cat: "Escolar",
-      costPrice: parseFloat(newCostPrice.replace(",", ".")),
+      costPrice: 0, // removed from UI
       price: parseFloat(newPrice.replace(",", ".")),
       qty: qtyNum,
       level: calculateLevel(qtyNum)
@@ -46,9 +54,49 @@ function Estoque() {
     addStock(item as any);
     setIsModalOpen(false);
     setNewName("");
-    setNewCostPrice("");
     setNewPrice("");
     setNewQty("");
+    toast.success("Produto cadastrado!");
+  };
+
+  const openDiscountModal = (id: string, name: string) => {
+    if (!id) {
+      toast.error("Produto não possui ID no banco ainda.");
+      return;
+    }
+    setDiscountItemId(id);
+    setDiscountItemName(name);
+    setDiscountQty("");
+    setIsConfirmingIntegration(false);
+    setIsDiscountModalOpen(true);
+  };
+
+  const handleDiscount = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!discountItemId || !discountQty) return;
+    const qtyNum = parseInt(discountQty, 10);
+    if (qtyNum <= 0) return;
+    
+    setIsConfirmingIntegration(true);
+  };
+
+  const finalizeDiscount = async (integrate: boolean) => {
+    if (!discountItemId || !discountQty) return;
+    const qtyNum = parseInt(discountQty, 10);
+    
+    await discountStock(discountItemId, qtyNum);
+    
+    if (integrate) {
+      const item = items.find(i => i.id === discountItemId);
+      if (item) {
+        const totalValue = item.price * qtyNum;
+        await addStockSale(item.name, totalValue);
+      }
+    }
+    
+    setIsConfirmingIntegration(false);
+    setIsDiscountModalOpen(false);
+    toast.success(`${qtyNum} unidades descontadas de ${discountItemName}!`);
   };
 
   return (
@@ -96,10 +144,10 @@ function Estoque() {
             <tr>
               <th className="px-5 py-3 text-left font-semibold">Produto</th>
               <th className="px-5 py-3 text-left font-semibold">Categoria</th>
-              <th className="px-5 py-3 text-right font-semibold">Preço Custo</th>
               <th className="px-5 py-3 text-right font-semibold">Preço Venda</th>
               <th className="px-5 py-3 text-right font-semibold">Qtd</th>
               <th className="px-5 py-3 text-left font-semibold">Estoque</th>
+              <th className="px-5 py-3 text-center font-semibold">Ações</th>
             </tr>
           </thead>
           <tbody>
@@ -107,13 +155,21 @@ function Estoque() {
               <tr key={i.id || i.name} className="border-t border-border/40 transition hover:bg-elevated/40">
                 <td className="px-5 py-4 font-medium">{i.name}</td>
                 <td className="px-5 py-4 text-muted-foreground">{i.cat}</td>
-                <td className="px-5 py-4 text-right text-muted-foreground">R$ {i.costPrice.toFixed(2)}</td>
                 <td className="px-5 py-4 text-right font-semibold text-electric">R$ {i.price.toFixed(2)}</td>
                 <td className="px-5 py-4 text-right">{i.qty}</td>
                 <td className="px-5 py-4">
                   <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold ${tone[i.level]}`}>
                     {i.level}
                   </span>
+                </td>
+                <td className="px-5 py-4 text-center">
+                  <button 
+                    onClick={() => openDiscountModal(i.id as string, i.name)}
+                    className="inline-flex items-center justify-center p-2 bg-destructive/10 text-destructive rounded-lg hover:bg-destructive/20 transition-colors"
+                    title="Descontar Produto"
+                  >
+                    <Minus className="w-4 h-4" />
+                  </button>
                 </td>
               </tr>
             ))}
@@ -143,11 +199,7 @@ function Estoque() {
                 <input required value={newName} onChange={e => setNewName(e.target.value)} className="mt-1 w-full rounded-xl border border-border/60 bg-elevated px-4 py-2 focus:ring-2 focus:ring-electric/50 outline-none" placeholder="Ex: Lápis de Cor..." />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-semibold text-muted-foreground">Preço Custo (R$)</label>
-                  <input required value={newCostPrice} onChange={e => setNewCostPrice(e.target.value)} type="text" placeholder="0.00" className="mt-1 w-full rounded-xl border border-border/60 bg-elevated px-4 py-2 focus:ring-2 focus:ring-electric/50 outline-none" />
-                </div>
-                <div>
+                <div className="col-span-2">
                   <label className="text-sm font-semibold text-muted-foreground">Preço Venda (R$)</label>
                   <input required value={newPrice} onChange={e => setNewPrice(e.target.value)} type="text" placeholder="0.00" className="mt-1 w-full rounded-xl border border-border/60 bg-elevated px-4 py-2 focus:ring-2 focus:ring-electric/50 outline-none" />
                 </div>
@@ -163,6 +215,56 @@ function Estoque() {
           </div>
         </div>
       )}
+      {isDiscountModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl border border-border/60 bg-surface p-6 shadow-2xl glass-card">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold">Descontar Produto</h2>
+              <button onClick={() => setIsDiscountModalOpen(false)} className="rounded-full p-2 hover:bg-elevated text-muted-foreground">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            {!isConfirmingIntegration ? (
+              <>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Descontar manualmente o item: <strong className="text-white">{discountItemName}</strong>
+                </p>
+                <form onSubmit={handleDiscount} className="space-y-4">
+                  <div>
+                    <label className="text-sm font-semibold text-muted-foreground">Quantidade a ser subtraída</label>
+                    <input required min="1" value={discountQty} onChange={e => setDiscountQty(e.target.value)} type="number" placeholder="Ex: 1" className="mt-1 w-full rounded-xl border border-border/60 bg-elevated px-4 py-2 focus:ring-2 focus:ring-electric/50 outline-none" />
+                  </div>
+                  <button type="submit" className="mt-2 w-full rounded-xl bg-destructive py-3 text-sm font-bold text-white shadow-lg shadow-destructive/20 hover:bg-destructive/90 transition-colors">
+                    Continuar
+                  </button>
+                </form>
+              </>
+            ) : (
+              <div className="space-y-6">
+                <p className="text-center font-medium text-lg text-white">
+                  Deseja transferir o valor desta venda para a Dashboard e Movimentações?
+                </p>
+                <div className="flex gap-4">
+                  <button 
+                    onClick={() => finalizeDiscount(false)}
+                    className="flex-1 rounded-xl border border-border/60 bg-elevated py-3 text-sm font-bold hover:bg-elevated/80 transition-colors"
+                  >
+                    Não
+                  </button>
+                  <button 
+                    onClick={() => finalizeDiscount(true)}
+                    className="flex-1 rounded-xl bg-aqua/20 text-aqua border border-aqua/40 py-3 text-sm font-bold hover:bg-aqua/30 transition-colors"
+                  >
+                    Sim
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

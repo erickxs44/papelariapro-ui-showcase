@@ -17,16 +17,25 @@ export type Item = {
 type StoreContextType = {
   items: Item[];
   addStock: (item: Item) => void;
-  checkout: (cart: { id?: string; name: string; qty: number; price: number }[], paymentMethod?: string) => Promise<void>;
+  checkout: (cart: { id?: string; name: string; qty: number; price: number }[], paymentMethod?: string, fiadoId?: string) => Promise<void>;
   xeroxCount: number;
   addExpense: (desc: string, value: number) => Promise<void>;
   addQuickSale: (desc: string, value: number) => Promise<void>;
   expenses: { desc: string; value: number; date: Date }[];
   sales: { value: number; date: Date }[];
   fiados: any[];
+  services: any[];
+  quickProducts: string[];
+  listasEscolares: any[];
   closeCashier: (period: "Hoje" | "7D" | "30D") => Promise<void>;
   resetData: () => Promise<void>;
   addFiado: (fiado: any) => Promise<void>;
+  addFiadoTransaction: (fiadoId: string, amount: number, desc: string) => Promise<void>;
+  payFiado: (fiadoId: string, amount: number) => Promise<void>;
+  addService: (service: any) => void;
+  discountStock: (itemId: string, qtyToDiscount: number) => Promise<void>;
+  addStockSale: (itemName: string, value: number) => Promise<void>;
+  getFiadoHistory: (fiadoId: string) => Promise<any[]>;
 };
 
 export function calculateLevel(qty: number): Item["level"] {
@@ -44,6 +53,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [expenses, setExpenses] = useState<{ desc: string; value: number; date: Date }[]>([]);
   const [sales, setSales] = useState<{ value: number; date: Date }[]>([]);
   const [fiados, setFiados] = useState<any[]>([]);
+  
+  // Catalogs that should be clearable
+  const [services, setServices] = useState<any[]>([]);
+  const [quickProducts, setQuickProducts] = useState<string[]>([]);
+  const [listasEscolares, setListasEscolares] = useState<any[]>([]);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -101,6 +115,36 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     fetchExpenses();
     fetchSales();
     fetchFiados();
+
+    // Initialize catalogs if not reset
+    if (!localStorage.getItem('reset_performed')) {
+      setServices([
+        { name: "Xerox P&B", price: 0.5, icon: "Copy" },
+        { name: "Xerox Color", price: 1.5, icon: "Palette" },
+        { name: "Impressão", price: 2.0, icon: "Printer" },
+        { name: "Encadernação", price: 8.0, icon: "BookOpen" },
+      ]);
+      setQuickProducts([
+        "Caderno Universitário 200fls",
+        "Caneta BIC Azul",
+        "Lápis HB",
+        "Borracha Branca",
+        "Régua 30cm",
+        "Marca Texto",
+        "Cola Bastão",
+        "Tesoura Escolar",
+      ]);
+      setListasEscolares([
+        {
+          name: "Lista Básica 1º Ano",
+          items: ["Caderno Universitário 200fls", "Lápis HB", "Borracha Branca", "Tesoura Escolar"]
+        },
+        {
+          name: "Kit Desenho",
+          items: ["Lápis de Cor 24 cores", "Tinta Guache 6 cores", "Lápis HB"]
+        }
+      ]);
+    }
   }, []);
 
   const addStock = async (item: Item) => {
@@ -121,8 +165,41 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const checkout = async (cart: { id?: string; name: string; qty: number; price: number }[], paymentMethod: string = "Dinheiro") => {
+  const discountStock = async (itemId: string, qtyToDiscount: number) => {
+    const item = items.find(i => i.id === itemId);
+    if (!item) return;
+    
+    const newQty = Math.max(0, item.qty - qtyToDiscount);
+    
+    // Update local state optimistic
+    setItems((prev) => 
+      prev.map(i => i.id === itemId ? { ...i, qty: newQty, level: calculateLevel(newQty) } : i)
+    );
+
+    // Update DB
+    await supabase.from('produtos').update({ estoque_atual: newQty }).eq('id', itemId);
+  };
+
+  const checkout = async (cart: { id?: string; name: string; qty: number; price: number }[], paymentMethod: string = "Dinheiro", fiadoId?: string) => {
     const total = cart.reduce((s, i) => s + i.price * i.qty, 0);
+
+    if (fiadoId && paymentMethod === "Fiado PDV") {
+      const fiado = fiados.find(f => f.id === fiadoId);
+      if (fiado) {
+        const newAmount = fiado.amount + total;
+        setFiados(prev => prev.map(f => f.id === fiadoId ? { ...f, amount: newAmount, status: newAmount > 0 ? "Em Atraso" : "Pendente" } : f));
+        await supabase.from('fiados').update({ valor: newAmount, status: newAmount > 0 ? "Em Atraso" : "Pendente" }).eq('id', fiadoId);
+        
+        // Record history
+        await supabase.from('historico_fiado').insert({
+          id_cliente: fiadoId,
+          descricao: `Compra PDV: ${cart.map(i => i.name).join(', ')}`,
+          valor: total,
+          tipo: 'Compra',
+          data: new Date().toISOString()
+        });
+      }
+    }
 
     setItems((prev) =>
       prev.map((item) => {
@@ -148,7 +225,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const { data: vendaData, error: vendaError } = await supabase.from('vendas').insert({
       valor_total: total,
       metodo_pagamento: paymentMethod,
-      data_venda: new Date().toISOString()
+      data_venda: new Date().toISOString(),
+      cliente_id: fiadoId
     }).select();
 
     if (!vendaError && vendaData && vendaData.length > 0) {
@@ -192,6 +270,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const addStockSale = async (itemName: string, value: number) => {
+    setSales(prev => [{ value, date: new Date() }, ...prev]);
+    await supabase.from('vendas').insert({
+      valor_total: value,
+      metodo_pagamento: `Estoque: ${itemName}`,
+      data_venda: new Date().toISOString()
+    });
+  };
+
   const addFiado = async (fiado: any) => {
     setFiados(prev => [fiado, ...prev]);
     await supabase.from('fiados').insert({
@@ -201,6 +288,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       data_vencimento: fiado.dueDate.toISOString(),
       status: fiado.status
     });
+  };
+
+  const addService = (service: any) => {
+    setServices(prev => [...prev, service]);
   };
 
   const closeCashier = async (period: "Hoje" | "7D" | "30D") => {
@@ -379,12 +470,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       // 2. Limpeza de Persistência Local
       localStorage.clear();
       sessionStorage.clear();
+      localStorage.setItem('reset_performed', 'true');
 
       // 3. Reset de Estado (State)
       setItems([]);
       setExpenses([]);
       setSales([]);
       setFiados([]);
+      setServices([]);
+      setQuickProducts([]);
+      setListasEscolares([]);
       setXeroxCount(0);
 
       // 4. Recarregamento Total (Hard Refresh)
@@ -398,8 +493,89 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const addFiadoTransaction = async (fiadoId: string, amount: number, desc: string) => {
+    const fiado = fiados.find(f => f.id === fiadoId);
+    if (!fiado) return;
+    const newAmount = fiado.amount + amount;
+    const newStatus = newAmount > 0 ? "Em Atraso" : "Pendente";
+
+    setFiados(prev => prev.map(f => f.id === fiadoId ? { ...f, amount: newAmount, status: newStatus } : f));
+    await supabase.from('fiados').update({ valor: newAmount, status: newStatus }).eq('id', fiadoId);
+
+    // Record history
+    await supabase.from('historico_fiado').insert({
+      id_cliente: fiadoId,
+      descricao: `Compra: ${desc}`,
+      valor: amount,
+      tipo: 'Compra',
+      data: new Date().toISOString()
+    });
+
+    // Add to vendas as pending
+    await supabase.from('vendas').insert({
+      valor_total: amount,
+      metodo_pagamento: `Fiado: ${desc}`,
+      data_venda: new Date().toISOString(),
+      cliente_id: fiadoId
+    });
+  };
+
+  const payFiado = async (fiadoId: string, amount: number) => {
+    const fiado = fiados.find(f => f.id === fiadoId);
+    if (!fiado) return;
+    const newAmount = Math.max(0, fiado.amount - amount);
+    const newStatus = newAmount > 0 ? "Pendente" : "Pendente";
+
+    setFiados(prev => prev.map(f => f.id === fiadoId ? { ...f, amount: newAmount, status: newStatus } : f));
+    await supabase.from('fiados').update({ valor: newAmount, status: newStatus }).eq('id', fiadoId);
+
+    // Record history
+    await supabase.from('historico_fiado').insert({
+      id_cliente: fiadoId,
+      descricao: `Pagamento Realizado`,
+      valor: amount,
+      tipo: 'Pagamento',
+      data: new Date().toISOString()
+    });
+
+    // Add to vendas as green (Baixa)
+    await supabase.from('vendas').insert({
+      valor_total: amount,
+      metodo_pagamento: `Baixa Fiado: ${fiado.name}`,
+      data_venda: new Date().toISOString(),
+      cliente_id: fiadoId
+    });
+  };
+
+  const getFiadoHistory = async (fiadoId: string) => {
+    const { data, error } = await supabase
+      .from('vendas')
+      .select('*')
+      .eq('cliente_id', fiadoId)
+      .order('data_venda', { ascending: false });
+    
+    if (error) {
+      console.error("Error fetching fiado history from movements:", error);
+      return [];
+    }
+
+    // Map vendas to the format expected by the UI
+    return (data || []).map(v => ({
+      id: v.id,
+      data: v.data_venda,
+      descricao: v.metodo_pagamento.includes("Baixa") ? "Recebimento de Fiado" : v.metodo_pagamento.replace("Fiado: ", "Compra: "),
+      valor: v.valor_total,
+      tipo: v.metodo_pagamento.includes("Baixa") ? "Pagamento" : "Compra"
+    }));
+  };
+
   return (
-    <StoreContext.Provider value={{ items, addStock, checkout, xeroxCount, addExpense, addQuickSale, expenses, sales, fiados, closeCashier, resetData, addFiado }}>
+    <StoreContext.Provider value={{ 
+      items, addStock, checkout, xeroxCount, addExpense, addQuickSale, 
+      expenses, sales, fiados, services, quickProducts, listasEscolares,
+      closeCashier, resetData, addFiado, addService, discountStock,
+      addFiadoTransaction, payFiado, addStockSale, getFiadoHistory
+    }}>
       {children}
     </StoreContext.Provider>
   );

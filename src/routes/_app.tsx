@@ -1,4 +1,5 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Outlet, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { AppSidebar } from "../components/app-sidebar";
 import { Topbar } from "../components/topbar";
 import { FAB } from "../components/FAB";
@@ -8,6 +9,15 @@ export const Route = createFileRoute("/_app")({
 });
 
 function AppLayout() {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const isLogged = localStorage.getItem("isLoggedIn");
+    if (isLogged !== "true") {
+      navigate({ to: "/login", replace: true });
+    }
+  }, [navigate]);
+
   return (
     <div className="flex min-h-screen w-full bg-background text-foreground gradient-bg">
       <AppSidebar />

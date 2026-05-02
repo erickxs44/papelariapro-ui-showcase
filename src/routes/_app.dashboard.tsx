@@ -209,7 +209,7 @@ function Dashboard() {
       </div>
 
       {/* Metrics Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
         <motion.div 
           whileHover={{ y: -5 }}
           className="rounded-3xl glass-card p-6 flex flex-col items-center justify-center text-center"
@@ -218,13 +218,6 @@ function Dashboard() {
           <h2 className="text-3xl font-black text-white">R$ {salesTotal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</h2>
         </motion.div>
         
-        <motion.div 
-          whileHover={{ y: -5 }}
-          className="rounded-3xl glass-card p-6 flex flex-col items-center justify-center text-center"
-        >
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Fiados</p>
-          <h2 className="text-3xl font-black text-amber-400">R$ {(salesTotal * 0.15).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</h2>
-        </motion.div>
 
         <motion.div 
           whileHover={{ y: -5 }}

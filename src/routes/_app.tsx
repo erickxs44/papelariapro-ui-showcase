@@ -14,11 +14,16 @@ function AppLayout() {
   const navigate = useNavigate();
   const [isAuthChecking, setIsAuthChecking] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
+    // Animação de progresso idêntica ao design original
+    const t = setInterval(() => setProgress((p) => Math.min(100, p + 4)), 50);
+
     const checkAuth = async () => {
-      // Simulate validation delay for the splash screen
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // Mantém o splash screen visível por um tempo mínimo para evitar "flashes"
+      // e respeitar o desejo de visualização do carregamento original.
+      await new Promise(resolve => setTimeout(resolve, 1200));
       
       const isLogged = sessionStorage.getItem("isLoggedIn");
       if (isLogged !== "true") {
@@ -30,31 +35,56 @@ function AppLayout() {
     };
 
     checkAuth();
+    return () => clearInterval(t);
   }, [navigate]);
 
   if (isAuthChecking) {
     return (
-      <div className="flex min-h-screen w-full items-center justify-center bg-background text-foreground gradient-bg">
-        <motion.div 
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
-          className="flex flex-col items-center gap-6"
-        >
-          <div className="relative flex h-24 w-24 items-center justify-center rounded-3xl bg-electric/20 border border-electric/30 backdrop-blur-xl shadow-[0_0_40px_rgba(124,58,237,0.3)]">
-            <PenLine className="h-12 w-12 text-electric" />
-            <motion.div 
-              className="absolute inset-0 rounded-3xl border-2 border-electric"
-              animate={{ rotate: 360 }}
-              transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-              style={{ borderTopColor: "transparent", borderRightColor: "transparent" }}
+      <div className="relative flex min-h-screen items-center justify-center overflow-hidden gradient-animated">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_30%,rgba(15,23,42,0.7)_80%)]" />
+        <div className="relative z-10 flex flex-col items-center gap-8">
+          <div className="relative">
+            <div className="absolute inset-0 rounded-full bg-electric/30 blur-2xl animate-pulse-ring" />
+            <div className="relative grid h-32 w-32 place-items-center rounded-full border border-white/10 bg-surface/40 backdrop-blur-xl card-inset">
+              <svg viewBox="0 0 120 120" className="absolute inset-0 h-full w-full -rotate-90">
+                <circle
+                  cx="60"
+                  cy="60"
+                  r="45"
+                  fill="none"
+                  stroke="url(#g)"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  className="draw-circle"
+                />
+                <defs>
+                  <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stopColor="oklch(0.7 0.2 250)" />
+                    <stop offset="100%" stopColor="oklch(0.82 0.15 180)" />
+                  </linearGradient>
+                </defs>
+              </svg>
+              <PenLine className="h-12 w-12 text-electric drop-shadow-[0_0_20px_rgba(96,165,250,0.7)]" />
+            </div>
+          </div>
+          <div className="text-center">
+            <h1 className="text-5xl font-extrabold tracking-tight text-foreground glow-text">
+              PapelariaPro
+            </h1>
+            <p className="mt-3 text-sm font-medium uppercase tracking-[0.3em] text-muted-foreground">
+              Gestão inteligente para sua papelaria
+            </p>
+          </div>
+          <div className="h-1 w-56 overflow-hidden rounded-full bg-white/10">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-electric to-aqua transition-all duration-100"
+              style={{ width: `${progress}%` }}
             />
           </div>
-          <div className="space-y-2 text-center">
-            <h1 className="text-2xl font-bold tracking-tight text-white">Papelaria<span className="text-electric">Pro</span></h1>
-            <p className="text-sm text-muted-foreground animate-pulse">Verificando segurança...</p>
-          </div>
-        </motion.div>
+          <p className="text-[10px] uppercase tracking-[0.4em] text-electric/60 animate-pulse font-bold">
+            Verificando Segurança
+          </p>
+        </div>
       </div>
     );
   }

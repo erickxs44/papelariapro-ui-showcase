@@ -13,7 +13,16 @@ function Index() {
 
   useEffect(() => {
     const t = setInterval(() => setProgress((p) => Math.min(100, p + 4)), 80);
-    const nav = setTimeout(() => navigate({ to: "/login" }), 2400);
+    
+    const nav = setTimeout(() => {
+      const isLogged = sessionStorage.getItem("isLoggedIn");
+      if (isLogged === "true") {
+        navigate({ to: "/dashboard" });
+      } else {
+        navigate({ to: "/login" });
+      }
+    }, 2400);
+
     return () => {
       clearInterval(t);
       clearTimeout(nav);

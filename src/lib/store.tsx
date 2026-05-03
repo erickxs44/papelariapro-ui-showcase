@@ -79,7 +79,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const fetchProducts = async () => {
       try {
         const { data, error } = await supabase.from('produtos').select('*');
-        if (!error && data) {
+        if (!error && Array.isArray(data)) {
           const loadedItems: Item[] = data.map((d: any) => ({
             id: d.id,
             name: d.nome,
@@ -99,7 +99,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const fetchExpenses = async () => {
       try {
         const { data, error } = await supabase.from('despesas').select('*');
-        if (!error && data) {
+        if (!error && Array.isArray(data)) {
           setExpenses(data.map((d: any) => ({
             desc: d.descricao || 'Sem descrição',
             value: d.valor ?? 0,
@@ -114,7 +114,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const fetchFiados = async () => {
       try {
         const { data, error } = await supabase.from('fiados').select('*');
-        if (!error && data) {
+        if (!error && Array.isArray(data)) {
           setFiados(data.map((d: any) => ({
             id: d.id,
             name: d.nome || 'Cliente',

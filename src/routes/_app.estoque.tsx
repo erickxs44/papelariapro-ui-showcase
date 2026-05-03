@@ -172,7 +172,7 @@ function Estoque() {
               <tr key={i.id || i.name} className="border-t border-border/40 transition hover:bg-elevated/40">
                 <td className="px-5 py-5 font-medium">{i.name}</td>
                 <td className="px-5 py-5 text-muted-foreground">{i.cat}</td>
-                <td className="px-5 py-5 text-right font-semibold text-electric">R$ {i.price.toFixed(2)}</td>
+                <td className="px-5 py-5 text-right font-semibold text-electric">R$ {(i?.price ?? 0).toFixed(2)}</td>
                 <td className="px-5 py-5 text-right">{i.qty}</td>
                 <td className="px-5 py-5">
                   <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${tone[i.level]}`}>
@@ -221,7 +221,7 @@ function Estoque() {
               <div className="flex items-center gap-4">
                 <div>
                   <p className="text-[10px] text-muted-foreground uppercase font-bold">Preço Unitário</p>
-                  <p className="font-bold text-electric text-sm leading-tight">R$ {i.price.toFixed(2)}</p>
+                  <p className="font-bold text-electric text-sm leading-tight">R$ {(i?.price ?? 0).toFixed(2)}</p>
                 </div>
               </div>
               <button 

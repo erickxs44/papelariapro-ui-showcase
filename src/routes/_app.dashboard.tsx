@@ -110,13 +110,13 @@ function Dashboard() {
     };
 
     filteredSales.forEach(s => {
-      const key = getKey(new Date(s.date));
-      sGroups[key] = (sGroups[key] || 0) + s.value;
+      const key = getKey(new Date(s?.date || Date.now()));
+      sGroups[key] = (sGroups[key] || 0) + (s?.value ?? 0);
     });
 
     filteredExpenses.forEach(e => {
-      const key = getKey(new Date(e.date));
-      eGroups[key] = (eGroups[key] || 0) + e.value;
+      const key = getKey(new Date(e?.date || Date.now()));
+      eGroups[key] = (eGroups[key] || 0) + (e?.value ?? 0);
     });
 
     const data = [];
@@ -145,16 +145,14 @@ function Dashboard() {
   }, [filteredSales, filteredExpenses, period]);
 
   const handleCloseCashier = async (selectedPeriod: "Hoje" | "7D" | "30D") => {
-    toast.promise(
-      async () => {
-        await closeCashier(selectedPeriod);
-      },
-      {
-        loading: 'Fechando caixa e enviando e-mail...',
-        success: 'Caixa fechado! Relatório enviado.',
-        error: 'Erro ao fechar caixa.',
-      }
-    );
+    toast.loading('Fechando caixa e enviando e-mail...', { id: 'close-cashier' });
+    try {
+      await closeCashier(selectedPeriod);
+      toast.success('Caixa fechado! Relatório enviado.', { id: 'close-cashier' });
+    } catch (e) {
+      console.warn('Erro ao fechar caixa:', e);
+      toast.error('Erro ao fechar caixa.', { id: 'close-cashier' });
+    }
   };
 
   return (

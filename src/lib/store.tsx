@@ -440,25 +440,34 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       startDate.setDate(now.getDate() - 30);
     }
 
-    const { data: salesData } = await supabase.from('vendas').select('valor_total, metodo_pagamento').gte('data_venda', startDate.toISOString());
+    // CRITICAL: Wrap DB queries in try/catch — network failures must NOT crash the UI
     let currentSalesTotal = 0;
     const salesByMethod = { Pix: 0, Cartão: 0, Dinheiro: 0 };
-    
-    if (salesData) {
-      currentSalesTotal = salesData.reduce((sum: number, v: any) => sum + v.valor_total, 0);
-      salesData.forEach((v: any) => {
-        if (v.metodo_pagamento === "Pix") salesByMethod.Pix += v.valor_total;
-        else if (v.metodo_pagamento === "Cartão") salesByMethod.Cartão += v.valor_total;
-        else if (v.metodo_pagamento === "Dinheiro") salesByMethod.Dinheiro += v.valor_total;
-      });
-    }
-
-    const { data: expData } = await supabase.from('despesas').select('descricao, valor').gte('data_pagamento', startDate.toISOString());
     let currentExpensesTotal = 0;
     let topExpenses: { descricao: string; valor: number }[] = [];
-    if (expData) {
-      currentExpensesTotal = expData.reduce((sum: number, e: any) => sum + e.valor, 0);
-      topExpenses = [...expData].sort((a, b) => b.valor - a.valor).slice(0, 3);
+
+    try {
+      const { data: salesData } = await supabase.from('vendas').select('valor_total, metodo_pagamento').gte('data_venda', startDate.toISOString());
+      if (salesData && Array.isArray(salesData)) {
+        currentSalesTotal = salesData.reduce((sum: number, v: any) => sum + (v.valor_total ?? 0), 0);
+        salesData.forEach((v: any) => {
+          if (v.metodo_pagamento === "Pix") salesByMethod.Pix += (v.valor_total ?? 0);
+          else if (v.metodo_pagamento === "Cartão") salesByMethod.Cartão += (v.valor_total ?? 0);
+          else if (v.metodo_pagamento === "Dinheiro") salesByMethod.Dinheiro += (v.valor_total ?? 0);
+        });
+      }
+    } catch (e) {
+      console.warn('Erro ao buscar vendas para fechamento:', e);
+    }
+
+    try {
+      const { data: expData } = await supabase.from('despesas').select('descricao, valor').gte('data_pagamento', startDate.toISOString());
+      if (expData && Array.isArray(expData)) {
+        currentExpensesTotal = expData.reduce((sum: number, e: any) => sum + (e.valor ?? 0), 0);
+        topExpenses = [...expData].sort((a, b) => (b.valor ?? 0) - (a.valor ?? 0)).slice(0, 3);
+      }
+    } catch (e) {
+      console.warn('Erro ao buscar despesas para fechamento:', e);
     }
 
     const lucro = currentSalesTotal - currentExpensesTotal;

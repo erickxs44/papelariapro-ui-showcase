@@ -114,9 +114,16 @@ function Fiados() {
     setHistoryFiado(fiado);
     setIsHistoryModalOpen(true);
     setIsLoadingHistory(true);
-    const history = await getFiadoHistory(fiado.id);
-    setHistoryItems(history);
-    setIsLoadingHistory(false);
+    try {
+      const history = await getFiadoHistory(fiado.id);
+      setHistoryItems(Array.isArray(history) ? history : []);
+    } catch (e) {
+      console.warn("Erro ao carregar histórico:", e);
+      setHistoryItems([]);
+      toast.error("Erro ao carregar histórico do cliente.");
+    } finally {
+      setIsLoadingHistory(false);
+    }
   };
 
   return (

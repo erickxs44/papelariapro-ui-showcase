@@ -16,7 +16,8 @@ import {
   ReceiptText,
   Lock,
   Wallet,
-  Smartphone
+  Smartphone,
+  Divide
 } from "lucide-react";
 import { useStore } from "../lib/store";
 import { toast } from "sonner";
@@ -39,11 +40,15 @@ function Pdv() {
   const { items, checkout, xeroxCount, services, quickProducts, listasEscolares, addService, fiados } = useStore();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [q, setQ] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<"Dinheiro" | "Cartão" | "Pix" | "Fiado">("Dinheiro");
-  const [amountReceived, setAmountReceived] = useState<string>("");
+  const [paymentMethod, setPaymentMethod] = useState<"Dinheiro" | "Cartão" | "Pix" | "Fiado" | "Dividido">("Dinheiro");
 
   const [isFiadoModalOpen, setIsFiadoModalOpen] = useState(false);
   const [selectedFiadoClient, setSelectedFiadoClient] = useState("");
+
+  const [isDivididoModalOpen, setIsDivididoModalOpen] = useState(false);
+  const [divididoVistaValue, setDivididoVistaValue] = useState("");
+  const [divididoVistaMethod, setDivididoVistaMethod] = useState("Dinheiro");
+  const [divididoFiadoClient, setDivididoFiadoClient] = useState("");
 
   // Novo Produto/Serviço modal
   const [isNewServiceModalOpen, setIsNewServiceModalOpen] = useState(false);
@@ -112,16 +117,21 @@ function Pdv() {
       setIsFiadoModalOpen(true);
       return;
     }
+    if (paymentMethod === "Dividido") {
+      setDivididoVistaValue((subtotal / 2).toFixed(2).replace('.', ','));
+      setIsDivididoModalOpen(true);
+      return;
+    }
     await processCheckout(paymentMethod);
   };
 
-  const processCheckout = async (method: string, fiadoId?: string) => {
+  const processCheckout = async (method: string, fiadoId?: string, dividedData?: any) => {
     setIsSubmitting(true);
     try {
-      await checkout(cart, method, fiadoId);
+      await checkout(cart, method, fiadoId, dividedData);
       setCart([]);
-      setAmountReceived("");
-      if (fiadoId) setIsFiadoModalOpen(false);
+      if (fiadoId && method === "Fiado PDV") setIsFiadoModalOpen(false);
+      if (method === "Dividido") setIsDivididoModalOpen(false);
       toast.success('Venda realizada com sucesso!');
     } catch (e) {
       console.warn('Erro no checkout:', e);
@@ -353,7 +363,8 @@ function Pdv() {
                 { id: "Dinheiro", icon: Wallet },
                 { id: "Cartão", icon: CreditCard },
                 { id: "Pix", icon: Smartphone },
-                { id: "Fiado", icon: ReceiptText }
+                { id: "Fiado", icon: ReceiptText },
+                { id: "Dividido", icon: Divide }
               ].map(m => (
                 <motion.button
                   whileHover={{ scale: 1.02 }}
@@ -368,51 +379,7 @@ function Pdv() {
               ))}
             </div>
 
-            <AnimatePresence>
-              {paymentMethod === "Dinheiro" && (
-                <motion.div 
-                  initial={{ opacity: 0, height: 0 }} 
-                  animate={{ opacity: 1, height: "auto" }} 
-                  exit={{ opacity: 0, height: 0 }}
-                  className="mb-3 space-y-3 rounded-xl bg-surface/50 p-3 border border-border/60 overflow-hidden"
-                >
-                  <div>
-                    <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Valor Recebido</label>
-                    <input 
-                      type="number" 
-                      step="0.01"
-                      placeholder="0.00" 
-                      value={amountReceived}
-                      onChange={e => setAmountReceived(e.target.value)}
-                      className="w-full rounded-lg border border-border/60 bg-elevated px-3 py-2 text-sm focus:border-electric focus:outline-none transition-all"
-                    />
-                    <div className="mt-2 flex gap-2 overflow-x-auto pb-1 custom-scrollbar">
-                      {[10, 20, 50, 100].map(val => (
-                        <button 
-                          key={val}
-                          onClick={() => setAmountReceived(val.toString())}
-                          className="shrink-0 rounded-lg bg-electric/10 px-3 py-1 text-xs font-bold text-electric hover:bg-electric/20 transition-colors"
-                        >
-                          R$ {val}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center justify-between rounded-lg bg-aqua/10 p-3 border border-aqua/20">
-                    <span className="text-xs font-bold text-aqua uppercase tracking-wider">Troco</span>
-                    {(() => {
-                      const received = parseFloat(amountReceived.replace(",", ".")) || 0;
-                      if (!amountReceived) return <span className="text-lg font-black text-aqua">R$ 0.00</span>;
-                      if (received < subtotal) {
-                        return <span className="text-xs font-bold text-destructive">Valor Insuficiente</span>
-                      }
-                      return <span className="text-2xl font-black text-aqua">R$ {(received - subtotal).toFixed(2)}</span>
-                    })()}
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+
 
             <motion.button 
               whileHover={{ scale: 1.02 }}
@@ -566,6 +533,107 @@ function Pdv() {
                       </>
                     ) : (
                       "Confirmar Venda"
+                    )}
+                  </motion.button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Pagamento Dividido */}
+      <AnimatePresence>
+        {isDivididoModalOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="w-full max-w-md rounded-3xl border border-white/10 bg-surface p-6 shadow-2xl relative glass-card"
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold">Pagamento Dividido</h2>
+                <button 
+                  onClick={() => setIsDivididoModalOpen(false)}
+                  className="rounded-full p-2 text-muted-foreground hover:bg-white/10 hover:text-white transition"
+                >
+                  <PackageX className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-muted-foreground">Valor à Vista (R$)</label>
+                    <input
+                      type="text"
+                      value={divididoVistaValue}
+                      onChange={(e) => setDivididoVistaValue(e.target.value)}
+                      className="w-full rounded-2xl border border-white/10 bg-elevated p-3 focus:border-electric focus:outline-none transition"
+                      placeholder="0,00"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-semibold text-muted-foreground">Método à Vista</label>
+                    <select
+                      value={divididoVistaMethod}
+                      onChange={(e) => setDivididoVistaMethod(e.target.value)}
+                      className="w-full rounded-2xl border border-white/10 bg-elevated p-3 focus:border-electric focus:outline-none transition"
+                    >
+                      <option value="Dinheiro">Dinheiro</option>
+                      <option value="Cartão">Cartão</option>
+                      <option value="Pix">Pix</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-aqua/30 bg-aqua/5 p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-semibold text-muted-foreground">Restante (Fiado):</span>
+                    {(() => {
+                      const v = parseFloat(divididoVistaValue.replace(',', '.')) || 0;
+                      const rest = subtotal - v;
+                      if (rest < 0) return <span className="text-lg font-black text-destructive">Valor Inválido</span>;
+                      return <span className="text-lg font-black text-aqua">R$ {rest.toFixed(2)}</span>;
+                    })()}
+                  </div>
+                  <label className="mb-2 block text-sm font-semibold text-muted-foreground">Selecione o Cliente</label>
+                  <select
+                    value={divididoFiadoClient}
+                    onChange={(e) => setDivididoFiadoClient(e.target.value)}
+                    className="w-full rounded-2xl border border-white/10 bg-elevated p-3 focus:border-electric focus:outline-none transition"
+                  >
+                    <option value="" disabled>Selecione um cliente...</option>
+                    {fiados?.map(f => (
+                      <option key={f.id} value={f.id}>{f.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="mt-6 flex justify-end">
+                  <motion.button 
+                    whileHover={divididoFiadoClient ? { scale: 1.02 } : {}}
+                    whileTap={divididoFiadoClient ? { scale: 0.95 } : {}}
+                    onClick={() => {
+                      const aVista = parseFloat(divididoVistaValue.replace(',', '.')) || 0;
+                      const rest = subtotal - aVista;
+                      processCheckout("Dividido", divididoFiadoClient, { aVista, fiado: rest, aVistaMethod: divididoVistaMethod });
+                    }}
+                    disabled={!divididoFiadoClient || (subtotal - (parseFloat(divididoVistaValue.replace(',', '.')) || 0)) <= 0 || isSubmitting}
+                    className="rounded-2xl bg-electric px-6 py-3 font-bold text-white shadow-lg shadow-electric/30 transition hover:bg-electric/90 w-full disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <div className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                        Processando...
+                      </>
+                    ) : (
+                      "Confirmar Venda Dividida"
                     )}
                   </motion.button>
                 </div>

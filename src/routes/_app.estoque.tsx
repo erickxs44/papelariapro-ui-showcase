@@ -17,7 +17,7 @@ const tone: Record<string, string> = {
 };
 
 function Estoque() {
-  const { items, addStock, registrarMovimentacao } = useStore();
+  const { items, addStock, registrarMovimentacao, reporEstoque, discountStock, addStockSale } = useStore();
   const [cat, setCat] = useState<Cat | "Todos">("Todos");
   const [q, setQ] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -34,7 +34,15 @@ function Estoque() {
   const [discountItemName, setDiscountItemName] = useState<string>("");
   const [discountQty, setDiscountQty] = useState("");
   const [isConfirmingIntegration, setIsConfirmingIntegration] = useState(false);
-  const { discountStock, addStockSale } = useStore();
+  
+  // States for restock modal
+  const [isRestockModalOpen, setIsRestockModalOpen] = useState(false);
+  const [restockItemId, setRestockItemId] = useState<string | null>(null);
+  const [restockItemName, setRestockItemName] = useState<string>("");
+  const [restockCost, setRestockCost] = useState("");
+  const [restockPrice, setRestockPrice] = useState("");
+  const [restockQty, setRestockQty] = useState("");
+
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const filtered = items.filter(
@@ -87,6 +95,41 @@ function Estoque() {
     setDiscountQty("");
     setIsConfirmingIntegration(false);
     setIsDiscountModalOpen(true);
+  };
+
+  const openRestockModal = (id: string, name: string, costPrice: number, price: number) => {
+    if (!id) {
+      toast.error("Produto não possui ID no banco ainda.");
+      return;
+    }
+    setRestockItemId(id);
+    setRestockItemName(name);
+    setRestockCost(costPrice.toFixed(2).replace('.', ','));
+    setRestockPrice(price.toFixed(2).replace('.', ','));
+    setRestockQty("");
+    setIsRestockModalOpen(true);
+  };
+
+  const handleRestock = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!restockItemId || !restockQty || !restockCost || !restockPrice) return;
+    
+    setIsSubmitting(true);
+    try {
+      const qtyNum = parseInt(restockQty, 10);
+      const parsedCost = parseFloat(restockCost.replace(",", "."));
+      const parsedPrice = parseFloat(restockPrice.replace(",", "."));
+      
+      await reporEstoque(restockItemId, parsedCost, parsedPrice, qtyNum);
+      
+      setIsRestockModalOpen(false);
+      toast.success(`${qtyNum} unidades repostas com sucesso!`);
+    } catch (e) {
+      console.warn("Erro ao repor estoque:", e);
+      toast.error("Erro ao repor estoque.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleDiscount = (e: React.FormEvent) => {
@@ -170,7 +213,8 @@ function Estoque() {
             <tr>
               <th className="px-5 py-4 text-left font-semibold">Produto</th>
               <th className="px-5 py-4 text-left font-semibold">Categoria</th>
-              <th className="px-5 py-4 text-right font-semibold">Preço Venda</th>
+              <th className="px-5 py-4 text-right font-semibold">Custo</th>
+              <th className="px-5 py-4 text-right font-semibold">Venda</th>
               <th className="px-5 py-4 text-right font-semibold">Qtd</th>
               <th className="px-5 py-4 text-left font-semibold">Estoque</th>
               <th className="px-5 py-4 text-center font-semibold">Ações</th>
@@ -181,6 +225,7 @@ function Estoque() {
               <tr key={i.id || i.name} className="border-t border-border/40 transition hover:bg-elevated/40">
                 <td className="px-5 py-5 font-medium">{i.name}</td>
                 <td className="px-5 py-5 text-muted-foreground">{i.cat}</td>
+                <td className="px-5 py-5 text-right font-semibold text-muted-foreground">R$ {(i?.costPrice ?? 0).toFixed(2)}</td>
                 <td className="px-5 py-5 text-right font-semibold text-electric">R$ {(i?.price ?? 0).toFixed(2)}</td>
                 <td className="px-5 py-5 text-right">{i.qty}</td>
                 <td className="px-5 py-5">
@@ -188,14 +233,23 @@ function Estoque() {
                     {i.level}
                   </span>
                 </td>
-                <td className="px-5 py-5 text-center">
-                  <button 
-                    onClick={() => openDiscountModal(i.id as string, i.name)}
-                    className="inline-flex items-center justify-center p-3 bg-destructive/10 text-destructive rounded-xl hover:bg-destructive/20 transition-colors"
-                    title="Descontar Produto"
-                  >
-                    <Minus className="w-5 h-5" />
-                  </button>
+                <td className="px-5 py-5">
+                  <div className="flex items-center justify-center gap-2">
+                    <button 
+                      onClick={() => openRestockModal(i.id as string, i.name, i.costPrice, i.price)}
+                      className="inline-flex items-center justify-center p-3 bg-emerald-500/10 text-emerald-500 rounded-xl hover:bg-emerald-500/20 transition-colors"
+                      title="Repor Estoque"
+                    >
+                      <Plus className="w-5 h-5" />
+                    </button>
+                    <button 
+                      onClick={() => openDiscountModal(i.id as string, i.name)}
+                      className="inline-flex items-center justify-center p-3 bg-destructive/10 text-destructive rounded-xl hover:bg-destructive/20 transition-colors"
+                      title="Descontar Produto"
+                    >
+                      <Minus className="w-5 h-5" />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
@@ -229,17 +283,30 @@ function Estoque() {
             <div className="flex items-center justify-between pt-2.5 border-t border-border/30">
               <div className="flex items-center gap-4">
                 <div>
-                  <p className="text-[10px] text-muted-foreground uppercase font-bold">Preço Unitário</p>
+                  <p className="text-[10px] text-muted-foreground uppercase font-bold">Custo</p>
+                  <p className="font-bold text-muted-foreground text-sm leading-tight">R$ {(i?.costPrice ?? 0).toFixed(2)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground uppercase font-bold">Venda</p>
                   <p className="font-bold text-electric text-sm leading-tight">R$ {(i?.price ?? 0).toFixed(2)}</p>
                 </div>
               </div>
-              <button 
-                onClick={() => openDiscountModal(i.id as string, i.name)}
-                className="inline-flex items-center justify-center p-2 bg-destructive/10 text-destructive rounded-lg hover:bg-destructive/20 transition-colors active:scale-95"
-                title="Descontar Produto"
-              >
-                <Minus className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => openRestockModal(i.id as string, i.name, i.costPrice, i.price)}
+                  className="inline-flex items-center justify-center p-2 bg-emerald-500/10 text-emerald-500 rounded-lg hover:bg-emerald-500/20 transition-colors active:scale-95"
+                  title="Repor Estoque"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+                <button 
+                  onClick={() => openDiscountModal(i.id as string, i.name)}
+                  className="inline-flex items-center justify-center p-2 bg-destructive/10 text-destructive rounded-lg hover:bg-destructive/20 transition-colors active:scale-95"
+                  title="Descontar Produto"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           </div>
         ))}
@@ -351,6 +418,49 @@ function Estoque() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {isRestockModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm px-4">
+          <div className="w-full max-w-md rounded-3xl border border-border/60 bg-surface p-6 shadow-2xl glass-card">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold">Repor Estoque</h2>
+              <button onClick={() => setIsRestockModalOpen(false)} className="rounded-full p-2 hover:bg-elevated text-muted-foreground">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <p className="text-sm text-muted-foreground mb-4">
+              Repor o item: <strong className="text-white">{restockItemName}</strong>
+            </p>
+            <form onSubmit={handleRestock} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-1">
+                  <label className="text-sm font-semibold text-muted-foreground">Novo Custo (R$)</label>
+                  <input required value={restockCost} onChange={e => setRestockCost(e.target.value)} type="text" placeholder="0.00" className="mt-1 w-full rounded-xl border border-border/60 bg-elevated px-4 py-2 focus:ring-2 focus:ring-emerald-500/50 outline-none" />
+                </div>
+                <div className="col-span-1">
+                  <label className="text-sm font-semibold text-muted-foreground">Preço Venda (R$)</label>
+                  <input required value={restockPrice} onChange={e => setRestockPrice(e.target.value)} type="text" placeholder="0.00" className="mt-1 w-full rounded-xl border border-border/60 bg-elevated px-4 py-2 focus:ring-2 focus:ring-emerald-500/50 outline-none" />
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-muted-foreground">Quantidade a Adicionar</label>
+                <input required min="1" value={restockQty} onChange={e => setRestockQty(e.target.value)} type="number" placeholder="Ex: 10" className="mt-1 w-full rounded-xl border border-border/60 bg-elevated px-4 py-2 focus:ring-2 focus:ring-emerald-500/50 outline-none" />
+              </div>
+              <button disabled={isSubmitting} type="submit" className="mt-2 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+                {isSubmitting ? (
+                  <>
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                    Processando...
+                  </>
+                ) : (
+                  "Confirmar Reposição"
+                )}
+              </button>
+            </form>
           </div>
         </div>
       )}

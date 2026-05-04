@@ -40,7 +40,7 @@ type StoreContextType = {
   xeroxCount: number;
   addExpense: (desc: string, value: number) => Promise<void>;
   addQuickSale: (desc: string, value: number) => Promise<void>;
-  expenses: { desc: string; value: number; date: Date }[];
+  expenses: { id?: string; desc: string; value: number; date: Date }[];
   sales: Movement[];
   fiados: any[];
   services: any[];
@@ -53,6 +53,8 @@ type StoreContextType = {
   payFiado: (fiadoId: string, amount: number) => Promise<void>;
   addService: (service: any) => void;
   discountStock: (itemId: string, qtyToDiscount: number) => Promise<void>;
+  reporEstoque: (itemId: string, newCost: number, newPrice: number, addQty: number) => Promise<void>;
+  estornarMovimentacao: (id: string, isDespesa: boolean) => Promise<void>;
   addStockSale: (itemName: string, value: number) => Promise<void>;
   getFiadoHistory: (fiadoId: string) => Promise<any[]>;
   registrarMovimentacao: (
@@ -76,7 +78,7 @@ const StoreContext = createContext<StoreContextType | null>(null);
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<Item[]>([]);
   const [xeroxCount, setXeroxCount] = useState(0);
-  const [expenses, setExpenses] = useState<{ desc: string; value: number; date: Date }[]>([]);
+  const [expenses, setExpenses] = useState<{ id?: string; desc: string; value: number; date: Date }[]>([]);
   const [sales, setSales] = useState<Movement[]>([]);
   const [fiados, setFiados] = useState<any[]>([]);
   
@@ -111,6 +113,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const { data, error } = await supabase.from('despesas').select('*');
         if (!error && Array.isArray(data)) {
           setExpenses(data.map((d: any) => ({
+            id: d.id,
             desc: d.descricao || 'Sem descrição',
             value: d.valor ?? 0,
             date: new Date(d.data_pagamento || Date.now())
@@ -252,11 +255,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const safeDesc = (descricao || '').trim() || 'Sem descrição';
 
     // 1. Atualização de Estado Reativa OBRIGATÓRIA (sem delay)
+    const tempId = crypto.randomUUID();
     if (tipo === "Saída") {
-      setExpenses(prev => [{ desc: safeDesc, value: valor, date: data }, ...prev]);
+      setExpenses(prev => [{ id: tempId, desc: safeDesc, value: valor, date: data }, ...prev]);
     } else {
       const newMove: Movement = {
-        id: crypto.randomUUID(),
+        id: tempId,
         clienteId: detalhes.cliente_id,
         type: tipo,
         description: safeDesc,
@@ -351,10 +355,35 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const checkout = async (cart: { id?: string; name: string; qty: number; price: number }[], paymentMethod: string = "Dinheiro", fiadoId?: string) => {
+  const checkout = async (
+    cart: { id?: string; name: string; qty: number; price: number }[], 
+    paymentMethod: string = "Dinheiro", 
+    fiadoId?: string,
+    dividedData?: { aVista: number; fiado: number; aVistaMethod: string }
+  ) => {
     const total = cart.reduce((s, i) => s + (i.price ?? 0) * (i.qty ?? 0), 0);
 
-    if (fiadoId && paymentMethod === "Fiado PDV") {
+    // Tratamento para pagamento dividido
+    if (paymentMethod === "Dividido" && dividedData && fiadoId) {
+      // 1. Fiado portion
+      const fiado = fiados.find(f => f.id === fiadoId);
+      if (fiado) {
+        const newAmount = (fiado.amount ?? 0) + dividedData.fiado;
+        setFiados(prev => prev.map(f => f.id === fiadoId ? { ...f, amount: newAmount, status: newAmount > 0 ? "Em Atraso" : "Pendente" } : f));
+        try {
+          await supabase.from('fiados').update({ valor: newAmount, status: newAmount > 0 ? "Em Atraso" : "Pendente" }).eq('id', fiadoId);
+          await supabase.from('historico_fiados').insert({
+            cliente_id: fiadoId,
+            descricao: `Compra PDV (Parte Fiado): ${cart.map(i => i.name).join(', ')}`,
+            valor: dividedData.fiado,
+            tipo: 'compra',
+            data: new Date().toISOString()
+          });
+        } catch (e) {
+          console.warn('Erro ao atualizar fiado no checkout dividido:', e);
+        }
+      }
+    } else if (fiadoId && paymentMethod === "Fiado PDV") {
       const fiado = fiados.find(f => f.id === fiadoId);
       if (fiado) {
         const newAmount = (fiado.amount ?? 0) + total;
@@ -393,13 +422,36 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     if (xeroxColor) addedXerox += xeroxColor.qty;
     if (addedXerox > 0) setXeroxCount(prev => prev + addedXerox);
 
-    const vendaId = await registrarMovimentacao(
-      new Date(),
-      cart.map(i => i.name).join(', '),
-      total,
-      fiadoId && paymentMethod === "Fiado PDV" ? "Venda Fiada" : "Venda",
-      { metodo_pagamento: paymentMethod, cliente_id: fiadoId }
-    );
+    const isDivided = paymentMethod === "Dividido" && dividedData;
+
+    let vendaId: string | null = null;
+
+    if (isDivided && dividedData) {
+      // Register the À Vista portion
+      vendaId = await registrarMovimentacao(
+        new Date(),
+        cart.map(i => i.name).join(', '),
+        dividedData.aVista,
+        "Venda",
+        { metodo_pagamento: dividedData.aVistaMethod }
+      );
+      // Register the Fiado portion
+      await registrarMovimentacao(
+        new Date(),
+        `(Fiado) ` + cart.map(i => i.name).join(', '),
+        dividedData.fiado,
+        "Venda Fiada",
+        { metodo_pagamento: "Fiado PDV", cliente_id: fiadoId }
+      );
+    } else {
+      vendaId = await registrarMovimentacao(
+        new Date(),
+        cart.map(i => i.name).join(', '),
+        total,
+        fiadoId && paymentMethod === "Fiado PDV" ? "Venda Fiada" : "Venda",
+        { metodo_pagamento: paymentMethod, cliente_id: fiadoId }
+      );
+    }
 
     if (vendaId) {
       for (const cartItem of cart) {
@@ -416,6 +468,93 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           }
         }
       }
+    }
+  };
+
+  const reporEstoque = async (itemId: string, newCost: number, newPrice: number, addQty: number) => {
+    const item = items.find(i => i.id === itemId);
+    if (!item) return;
+
+    const newTotalQty = item.qty + addQty;
+    
+    // Update local state optimistic
+    setItems((prev) => 
+      prev.map(i => i.id === itemId ? { ...i, qty: newTotalQty, costPrice: newCost, price: newPrice, level: calculateLevel(newTotalQty) } : i)
+    );
+
+    // Update DB
+    try {
+      await supabase.from('produtos').update({ 
+        estoque_atual: newTotalQty,
+        preco_custo: newCost,
+        preco_venda: newPrice
+      }).eq('id', itemId);
+    } catch (e) {
+      console.warn('Erro ao atualizar estoque:', e);
+    }
+
+    // Register Expense
+    const expenseTotal = newCost * addQty;
+    if (expenseTotal > 0) {
+      await registrarMovimentacao(new Date(), `Reposição de Estoque: ${item.name} (${addQty}x)`, expenseTotal, "Saída", { categoria: 'Estoque' });
+    }
+  };
+
+  const estornarMovimentacao = async (id: string, isDespesa: boolean) => {
+    try {
+      if (isDespesa) {
+        await supabase.from('despesas').delete().eq('id', id);
+        setExpenses(prev => prev.filter(e => e.id !== id));
+      } else {
+        const move = sales.find(s => s.id === id);
+        
+        // Devolve o estoque
+        const { data: itensVenda } = await supabase.from('itens_venda').select('*').eq('venda_id', id);
+        if (itensVenda && itensVenda.length > 0) {
+          for (const iv of itensVenda) {
+             const prodId = iv.produto_id;
+             const qtyToReturn = iv.quantidade;
+             const item = items.find(i => i.id === prodId);
+             if (item) {
+               const newQty = item.qty + qtyToReturn;
+               setItems(prev => prev.map(i => i.id === prodId ? { ...i, qty: newQty, level: calculateLevel(newQty) } : i));
+               await supabase.from('produtos').update({ estoque_atual: newQty }).eq('id', prodId);
+             }
+          }
+        }
+        
+        // Abate dívida se for fiado
+        if (move && move.type === "Venda Fiada" && move.clienteId) {
+           const fiadoId = move.clienteId;
+           const amount = move.value;
+           const fiado = fiados.find(f => f.id === fiadoId);
+           if (fiado) {
+             const newAmount = Math.max(0, (fiado.amount ?? 0) - amount);
+             const newStatus = newAmount > 0 ? "Em Atraso" : "Pendente";
+             setFiados(prev => prev.map(f => f.id === fiadoId ? { ...f, amount: newAmount, status: newStatus } : f));
+             await supabase.from('fiados').update({ valor: newAmount, status: newStatus }).eq('id', fiadoId);
+             
+             await supabase.from('historico_fiados').insert({
+               cliente_id: fiadoId,
+               descricao: `Estorno de Venda`,
+               valor: amount,
+               tipo: 'pagamento', // Funciona como pagamento abatendo a dívida
+               data: new Date().toISOString()
+             });
+           }
+        }
+
+        await supabase.from('vendas').delete().eq('id', id);
+        setSales(prev => {
+          const next = prev.filter(s => s.id !== id);
+          try { localStorage.setItem('papelaria_movements', JSON.stringify(next)); } catch {}
+          return next;
+        });
+      }
+      toast.success("Movimentação estornada com sucesso!");
+    } catch(e) {
+      console.warn("Erro ao estornar movimentacao", e);
+      toast.error("Erro ao estornar movimentação.");
     }
   };
 
@@ -741,7 +880,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       items, addStock, checkout, xeroxCount, addExpense, addQuickSale, 
       expenses, sales, fiados, services, quickProducts, listasEscolares,
       closeCashier, resetData, addFiado, addService, discountStock,
-      addFiadoTransaction, payFiado, addStockSale, getFiadoHistory, registrarMovimentacao
+      addFiadoTransaction, payFiado, addStockSale, getFiadoHistory, registrarMovimentacao,
+      reporEstoque, estornarMovimentacao
     }}>
       {children}
     </StoreContext.Provider>
@@ -778,6 +918,8 @@ export function useStore() {
       addStockSale: noop,
       getFiadoHistory: async () => [],
       registrarMovimentacao: async () => null,
+      reporEstoque: async () => {},
+      estornarMovimentacao: async () => {},
     } as StoreContextType;
   }
   return ctx;

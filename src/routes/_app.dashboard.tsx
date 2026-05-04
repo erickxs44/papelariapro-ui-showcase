@@ -39,7 +39,7 @@ export const Route = createFileRoute("/_app/dashboard")({
 
 function Dashboard() {
   const { sales, expenses, closeCashier, items, fiados } = useStore();
-  const [period, setPeriod] = useState<"Hoje" | "7D" | "30D">("Hoje");
+  const [period, setPeriod] = useState<"Hoje" | "7D" | "30D" | "3M" | "6M" | "1Y" | "Tudo">("Hoje");
   const [showReportMenu, setShowReportMenu] = useState(false);
   const [dbTopProducts, setDbTopProducts] = useState<any[]>([]);
   
@@ -94,6 +94,17 @@ function Dashboard() {
     } else if (period === "30D") {
       start.setDate(now.getDate() - 30);
       start.setHours(0,0,0,0);
+    } else if (period === "3M") {
+      start.setMonth(now.getMonth() - 3);
+      start.setHours(0,0,0,0);
+    } else if (period === "6M") {
+      start.setMonth(now.getMonth() - 6);
+      start.setHours(0,0,0,0);
+    } else if (period === "1Y") {
+      start.setFullYear(now.getFullYear() - 1);
+      start.setHours(0,0,0,0);
+    } else if (period === "Tudo") {
+      return new Date(0);
     }
     return start;
   }, [period]);
@@ -117,6 +128,10 @@ function Dashboard() {
       const d = new Date(date);
       if (period === "Hoje") return d.getHours() + "h";
       if (period === "7D") return d.toLocaleDateString("pt-BR", { weekday: 'short' });
+      if (period === "30D") return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+      if (["3M", "6M", "1Y", "Tudo"].includes(period)) {
+        return d.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
+      }
       return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
     };
 
@@ -144,12 +159,42 @@ function Dashboard() {
         const k = d.toLocaleDateString("pt-BR", { weekday: 'short' });
         data.push({ day: k, value: sGroups[k] || 0, expense: eGroups[k] || 0 });
       }
-    } else {
+    } else if (period === "30D") {
       for (let i = 29; i >= 0; i -= 5) {
         const d = new Date(now);
         d.setDate(d.getDate() - i);
         const k = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
         data.push({ day: k, value: sGroups[k] || 0, expense: eGroups[k] || 0 });
+      }
+    } else if (period === "3M") {
+      for (let i = 2; i >= 0; i--) {
+        const d = new Date(now);
+        d.setMonth(d.getMonth() - i);
+        const k = d.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
+        data.push({ day: k, value: sGroups[k] || 0, expense: eGroups[k] || 0 });
+      }
+    } else if (period === "6M") {
+      for (let i = 5; i >= 0; i--) {
+        const d = new Date(now);
+        d.setMonth(d.getMonth() - i);
+        const k = d.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
+        data.push({ day: k, value: sGroups[k] || 0, expense: eGroups[k] || 0 });
+      }
+    } else if (period === "1Y") {
+      for (let i = 11; i >= 0; i--) {
+        const d = new Date(now);
+        d.setMonth(d.getMonth() - i);
+        const k = d.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
+        data.push({ day: k, value: sGroups[k] || 0, expense: eGroups[k] || 0 });
+      }
+    } else if (period === "Tudo") {
+      for (let i = 23; i >= 0; i--) {
+        const d = new Date(now);
+        d.setMonth(d.getMonth() - i);
+        const k = d.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
+        if (sGroups[k] || eGroups[k] || i < 6) {
+          data.push({ day: k, value: sGroups[k] || 0, expense: eGroups[k] || 0 });
+        }
       }
     }
     return data;
@@ -283,24 +328,48 @@ function Dashboard() {
           className="rounded-3xl glass-card p-6"
         >
           <div className="mb-6 flex flex-col gap-4 pb-4 md:flex-row md:items-center md:justify-end">
-            <div className="flex items-center gap-1 rounded-xl border border-border/50 bg-background/50 p-1">
+            <div className="flex items-center gap-1 rounded-xl border border-border/50 bg-background/50 p-1 overflow-x-auto custom-scrollbar">
               <button 
                 onClick={() => setPeriod("Hoje")}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${period === "Hoje" ? "bg-surface shadow text-aqua" : "text-muted-foreground hover:text-foreground"}`}
+                className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${period === "Hoje" ? "bg-surface shadow text-aqua scale-105" : "text-muted-foreground hover:text-foreground"}`}
               >
                 Hoje
               </button>
               <button 
                 onClick={() => setPeriod("7D")}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${period === "7D" ? "bg-surface shadow text-aqua" : "text-muted-foreground hover:text-foreground"}`}
+                className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${period === "7D" ? "bg-surface shadow text-aqua scale-105" : "text-muted-foreground hover:text-foreground"}`}
               >
                 7D
               </button>
               <button 
                 onClick={() => setPeriod("30D")}
-                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${period === "30D" ? "bg-surface shadow text-aqua" : "text-muted-foreground hover:text-foreground"}`}
+                className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${period === "30D" ? "bg-surface shadow text-aqua scale-105" : "text-muted-foreground hover:text-foreground"}`}
               >
                 30D
+              </button>
+              <button 
+                onClick={() => setPeriod("3M")}
+                className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${period === "3M" ? "bg-surface shadow text-aqua scale-105" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                3M
+              </button>
+              <button 
+                onClick={() => setPeriod("6M")}
+                className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${period === "6M" ? "bg-surface shadow text-aqua scale-105" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                6M
+              </button>
+              <button 
+                onClick={() => setPeriod("1Y")}
+                className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${period === "1Y" ? "bg-surface shadow text-aqua scale-105" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                1 Ano
+              </button>
+              <button 
+                onClick={() => setPeriod("Tudo")}
+                className={`shrink-0 rounded-lg px-3 py-1.5 text-xs font-semibold transition ${period === "Tudo" ? "bg-surface shadow text-aqua scale-105" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                Tudo
               </button>
             </div>
           </div>

@@ -7,11 +7,14 @@ import {
   Filter, 
   ArrowLeftRight,
   Clock,
+  Clock,
   Tag,
-  DollarSign
+  DollarSign,
+  Trash2
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useStore } from "../lib/store";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/_app/movimentacoes")({
   head: () => ({ meta: [{ title: "Movimentações — PapelariaPro" }] }),
@@ -28,7 +31,7 @@ type Movement = {
 };
 
 function Movimentacoes() {
-  const { items, sales, expenses } = useStore();
+  const { items, sales, expenses, estornarMovimentacao } = useStore();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"Todas" | "Entradas" | "Saídas">("Todas");
   const movements = useMemo(() => {
@@ -84,7 +87,7 @@ function Movimentacoes() {
     });
 
     const mExps: Movement[] = safeExpenses.map((e, idx) => ({
-      id: `e-${idx}`,
+      id: e?.id || `e-${idx}`,
       type: "saida" as const,
       date: parseDate(e?.date),
       description: (e?.desc || '').trim() || 'Despesa',
@@ -105,6 +108,21 @@ function Movimentacoes() {
       return matchSearch && matchFilter;
     });
   }, [movements, search, filter]);
+
+  const handleEstornar = async (m: Movement) => {
+    if (!window.confirm(`Tem certeza que deseja estornar: ${m.description}?`)) return;
+    
+    // Se for uma despesa genérica, tratamos como despesa. Caso contrário, como venda.
+    const isDespesa = m.category === "Geral" && m.type === "saida";
+    const typeArgs = isDespesa ? "despesa" : "venda";
+
+    try {
+      await estornarMovimentacao(m.id, typeArgs);
+      toast.success("Movimentação estornada com sucesso.");
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao estornar movimentação.");
+    }
+  };
 
   return (
     <div className="mx-auto max-w-7xl pb-12">
@@ -196,9 +214,18 @@ function Movimentacoes() {
                      </div>
                    </div>
                    
-                   {/* Right: Value */}
-                   <div className={`font-bold text-sm text-right pt-1.5 ml-2 ${valueColor}`}>
-                     {valuePrefix}R$ {m.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                   {/* Right: Value & Actions */}
+                   <div className="flex flex-col items-end gap-2 ml-2 pt-1">
+                     <div className={`font-bold text-sm text-right ${valueColor}`}>
+                       {valuePrefix}R$ {m.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                     </div>
+                     <button
+                       onClick={() => handleEstornar(m)}
+                       className="p-1 rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                       title="Estornar / Excluir"
+                     >
+                       <Trash2 className="h-3.5 w-3.5" />
+                     </button>
                    </div>
                  </div>
                );

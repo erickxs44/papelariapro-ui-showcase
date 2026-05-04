@@ -38,7 +38,7 @@ export const Route = createFileRoute("/_app/dashboard")({
 // Dynamic types and calculation inside the component
 
 function Dashboard() {
-  const { sales, expenses, closeCashier, items } = useStore();
+  const { sales, expenses, closeCashier, items, fiados } = useStore();
   const [period, setPeriod] = useState<"Hoje" | "7D" | "30D">("Hoje");
   const [showReportMenu, setShowReportMenu] = useState(false);
   const [dbTopProducts, setDbTopProducts] = useState<any[]>([]);
@@ -98,12 +98,16 @@ function Dashboard() {
     return start;
   }, [period]);
 
-  const filteredSales = useMemo(() => (Array.isArray(sales) ? sales : []).filter(s => new Date(s?.date || 0) >= startDate), [sales, startDate]);
+  const filteredSales = useMemo(() => (Array.isArray(sales) ? sales : []).filter(s => new Date(s?.date || 0) >= startDate && s.type !== "Venda Fiada"), [sales, startDate]);
   const filteredExpenses = useMemo(() => (Array.isArray(expenses) ? expenses : []).filter(e => new Date(e?.date || 0) >= startDate), [expenses, startDate]);
 
   const salesTotal = filteredSales.reduce((s, e) => s + (e?.value ?? 0), 0);
   const expensesTotal = filteredExpenses.reduce((s, e) => s + (e?.value ?? 0), 0);
   const lucroReal = salesTotal - expensesTotal;
+  
+  const dividaClientes = useMemo(() => {
+    return (Array.isArray(fiados) ? fiados : []).reduce((acc, f) => acc + (f?.amount ?? 0), 0);
+  }, [fiados]);
 
   const chartData = useMemo(() => {
     const sGroups: Record<string, number> = {};
@@ -205,7 +209,7 @@ function Dashboard() {
       </div>
 
       {/* Metrics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-8">
         <motion.div 
           whileHover={{ y: -4 }}
           transition={{ type: "spring", stiffness: 300 }}
@@ -250,6 +254,21 @@ function Dashboard() {
           </div>
           <h2 className="text-2xl lg:text-3xl font-black text-aqua relative z-10">R$ {lucroReal.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</h2>
           <p className="text-xs text-aqua/60 mt-1 relative z-10">Vendas − Despesas</p>
+        </motion.div>
+
+        <motion.div 
+          whileHover={{ y: -4 }}
+          transition={{ type: "spring", stiffness: 300 }}
+          className="rounded-3xl glass-card p-5 lg:p-6 flex flex-col"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Dívida de Clientes</p>
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-400/10 text-amber-400">
+              <AlertTriangle className="h-4 w-4" />
+            </div>
+          </div>
+          <h2 className="text-2xl lg:text-3xl font-black text-amber-400">R$ {dividaClientes.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</h2>
+          <p className="text-xs text-muted-foreground mt-1">Saldo pendente em Fiados</p>
         </motion.div>
       </div>
 

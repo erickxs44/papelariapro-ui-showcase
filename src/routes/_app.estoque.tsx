@@ -17,13 +17,14 @@ const tone: Record<string, string> = {
 };
 
 function Estoque() {
-  const { items, addStock } = useStore();
+  const { items, addStock, registrarMovimentacao } = useStore();
   const [cat, setCat] = useState<Cat | "Todos">("Todos");
   const [q, setQ] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   
   // States for new product
   const [newName, setNewName] = useState("");
+  const [newCostPrice, setNewCostPrice] = useState("");
   const [newPrice, setNewPrice] = useState("");
   const [newQty, setNewQty] = useState("");
 
@@ -42,24 +43,32 @@ function Estoque() {
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newName || !newPrice || !newQty) return;
+    if (!newName || !newPrice || !newQty || !newCostPrice) return;
     setIsSubmitting(true);
     try {
       const qtyNum = parseInt(newQty, 10);
+      const parsedCost = parseFloat(newCostPrice.replace(",", "."));
       const item = {
         name: newName,
         cat: "Escolar",
-        costPrice: 0, // removed from UI
+        costPrice: parsedCost,
         price: parseFloat(newPrice.replace(",", ".")),
         qty: qtyNum,
         level: calculateLevel(qtyNum)
       };
       await addStock(item as any);
+      
+      const totalCost = parsedCost * qtyNum;
+      if (totalCost > 0) {
+        await registrarMovimentacao(new Date(), `Estoque: ${newName}`, totalCost, "Saída", { categoria: "Estoque" });
+      }
+
       setIsModalOpen(false);
       setNewName("");
+      setNewCostPrice("");
       setNewPrice("");
       setNewQty("");
-      toast.success("Produto cadastrado!");
+      toast.success("Produto cadastrado e despesa registrada!");
     } catch (e) {
       console.warn("Erro ao adicionar produto:", e);
       toast.error("Erro ao cadastrar produto.");
@@ -256,8 +265,12 @@ function Estoque() {
                 <input required value={newName} onChange={e => setNewName(e.target.value)} className="mt-1 w-full rounded-xl border border-border/60 bg-elevated px-4 py-2 focus:ring-2 focus:ring-electric/50 outline-none" placeholder="Ex: Lápis de Cor..." />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="col-span-2">
-                  <label className="text-sm font-semibold text-muted-foreground">Preço Venda (R$)</label>
+                <div className="col-span-1">
+                  <label className="text-sm font-semibold text-muted-foreground">Preço de Compra (R$)</label>
+                  <input required value={newCostPrice} onChange={e => setNewCostPrice(e.target.value)} type="text" placeholder="0.00" className="mt-1 w-full rounded-xl border border-border/60 bg-elevated px-4 py-2 focus:ring-2 focus:ring-electric/50 outline-none" />
+                </div>
+                <div className="col-span-1">
+                  <label className="text-sm font-semibold text-muted-foreground">Preço de Venda (R$)</label>
                   <input required value={newPrice} onChange={e => setNewPrice(e.target.value)} type="text" placeholder="0.00" className="mt-1 w-full rounded-xl border border-border/60 bg-elevated px-4 py-2 focus:ring-2 focus:ring-electric/50 outline-none" />
                 </div>
               </div>

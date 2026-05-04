@@ -489,7 +489,7 @@ function Fiados() {
                 <div className="rounded-2xl bg-white/5 p-4 border border-white/5 flex items-center justify-between">
                   <span className="text-sm font-semibold text-muted-foreground uppercase">Saldo Devedor Atual</span>
                   <span className="text-2xl font-black text-white">
-                     R$ {(Array.isArray(historyItems) ? historyItems : []).reduce((acc, item) => item?.tipo === 'Compra' ? acc + (item?.valor ?? 0) : acc - (item?.valor ?? 0), 0).toFixed(2)}
+                     R$ {(Array.isArray(historyItems) ? historyItems : []).reduce((acc, item) => item?.tipo?.toLowerCase() === 'compra' ? acc + (item?.valor ?? 0) : acc - (item?.valor ?? 0), 0).toFixed(2)}
                   </span>
                 </div>
               </div>
@@ -515,8 +515,8 @@ function Fiados() {
                         className="flex items-center justify-between p-4 rounded-2xl bg-elevated/40 border border-white/5 hover:border-white/10 transition-colors"
                       >
                         <div className="flex items-center gap-4">
-                          <div className={`grid h-10 w-10 place-items-center rounded-xl ${item.tipo === 'Compra' ? 'bg-destructive/10 text-destructive' : 'bg-aqua/10 text-aqua'}`}>
-                            {item.tipo === 'Compra' ? <ArrowUpRight className="h-5 w-5" /> : <ArrowDownLeft className="h-5 w-5" />}
+                          <div className={`grid h-10 w-10 place-items-center rounded-xl ${item?.tipo?.toLowerCase() === 'compra' ? 'bg-destructive/10 text-destructive' : 'bg-aqua/10 text-aqua'}`}>
+                            {item?.tipo?.toLowerCase() === 'compra' ? <ArrowUpRight className="h-5 w-5" /> : <ArrowDownLeft className="h-5 w-5" />}
                           </div>
                           <div>
                             <p className="font-bold text-sm leading-tight">{item.descricao}</p>
@@ -526,8 +526,8 @@ function Fiados() {
                             </p>
                           </div>
                         </div>
-                        <div className={`text-sm font-black ${item?.tipo === 'Compra' ? 'text-destructive' : 'text-aqua'}`}>
-                          {item?.tipo === 'Compra' ? '+' : '-'} R$ {(item?.valor ?? 0).toFixed(2)}
+                        <div className={`text-sm font-black ${item?.tipo?.toLowerCase() === 'compra' ? 'text-destructive' : 'text-aqua'}`}>
+                          {item?.tipo?.toLowerCase() === 'compra' ? '+' : '-'} R$ {(item?.valor ?? 0).toFixed(2)}
                         </div>
                       </motion.div>
                     ))}

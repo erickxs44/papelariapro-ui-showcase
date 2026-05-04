@@ -40,6 +40,7 @@ function Pdv() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [q, setQ] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"Dinheiro" | "Cartão" | "Pix" | "Fiado">("Dinheiro");
+  const [amountReceived, setAmountReceived] = useState<string>("");
 
   const [isFiadoModalOpen, setIsFiadoModalOpen] = useState(false);
   const [selectedFiadoClient, setSelectedFiadoClient] = useState("");
@@ -119,6 +120,7 @@ function Pdv() {
     try {
       await checkout(cart, method, fiadoId);
       setCart([]);
+      setAmountReceived("");
       if (fiadoId) setIsFiadoModalOpen(false);
       toast.success('Venda realizada com sucesso!');
     } catch (e) {
@@ -365,6 +367,52 @@ function Pdv() {
                 </motion.button>
               ))}
             </div>
+
+            <AnimatePresence>
+              {paymentMethod === "Dinheiro" && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }} 
+                  animate={{ opacity: 1, height: "auto" }} 
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mb-3 space-y-3 rounded-xl bg-surface/50 p-3 border border-border/60 overflow-hidden"
+                >
+                  <div>
+                    <label className="mb-1 block text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Valor Recebido</label>
+                    <input 
+                      type="number" 
+                      step="0.01"
+                      placeholder="0.00" 
+                      value={amountReceived}
+                      onChange={e => setAmountReceived(e.target.value)}
+                      className="w-full rounded-lg border border-border/60 bg-elevated px-3 py-2 text-sm focus:border-electric focus:outline-none transition-all"
+                    />
+                    <div className="mt-2 flex gap-2 overflow-x-auto pb-1 custom-scrollbar">
+                      {[10, 20, 50, 100].map(val => (
+                        <button 
+                          key={val}
+                          onClick={() => setAmountReceived(val.toString())}
+                          className="shrink-0 rounded-lg bg-electric/10 px-3 py-1 text-xs font-bold text-electric hover:bg-electric/20 transition-colors"
+                        >
+                          R$ {val}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between rounded-lg bg-aqua/10 p-3 border border-aqua/20">
+                    <span className="text-xs font-bold text-aqua uppercase tracking-wider">Troco</span>
+                    {(() => {
+                      const received = parseFloat(amountReceived.replace(",", ".")) || 0;
+                      if (!amountReceived) return <span className="text-lg font-black text-aqua">R$ 0.00</span>;
+                      if (received < subtotal) {
+                        return <span className="text-xs font-bold text-destructive">Valor Insuficiente</span>
+                      }
+                      return <span className="text-2xl font-black text-aqua">R$ {(received - subtotal).toFixed(2)}</span>
+                    })()}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             <motion.button 
               whileHover={{ scale: 1.02 }}

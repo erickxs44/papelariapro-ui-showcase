@@ -361,11 +361,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setFiados(prev => prev.map(f => f.id === fiadoId ? { ...f, amount: newAmount, status: newAmount > 0 ? "Em Atraso" : "Pendente" } : f));
         try {
           await supabase.from('fiados').update({ valor: newAmount, status: newAmount > 0 ? "Em Atraso" : "Pendente" }).eq('id', fiadoId);
-          await supabase.from('historico_fiado').insert({
-            id_cliente: fiadoId,
+          await supabase.from('historico_fiados').insert({
+            cliente_id: fiadoId,
             descricao: `Compra PDV: ${cart.map(i => i.name).join(', ')}`,
             valor: total,
-            tipo: 'Compra',
+            tipo: 'compra',
             data: new Date().toISOString()
           });
         } catch (e) {
@@ -679,11 +679,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setFiados(prev => prev.map(f => f.id === fiadoId ? { ...f, amount: newAmount, status: newStatus } : f));
     try {
       await supabase.from('fiados').update({ valor: newAmount, status: newStatus }).eq('id', fiadoId);
-      await supabase.from('historico_fiado').insert({
-        id_cliente: fiadoId,
+      await supabase.from('historico_fiados').insert({
+        cliente_id: fiadoId,
         descricao: `Compra: ${desc}`,
         valor: amount,
-        tipo: 'Compra',
+        tipo: 'compra',
         data: new Date().toISOString()
       });
     } catch (e) {
@@ -702,11 +702,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setFiados(prev => prev.map(f => f.id === fiadoId ? { ...f, amount: newAmount, status: newStatus } : f));
     try {
       await supabase.from('fiados').update({ valor: newAmount, status: newStatus }).eq('id', fiadoId);
-      await supabase.from('historico_fiado').insert({
-        id_cliente: fiadoId,
+      await supabase.from('historico_fiados').insert({
+        cliente_id: fiadoId,
         descricao: `Pagamento Realizado`,
         valor: amount,
-        tipo: 'Pagamento',
+        tipo: 'pagamento',
         data: new Date().toISOString()
       });
     } catch (e) {
@@ -719,9 +719,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const getFiadoHistory = async (fiadoId: string) => {
     try {
       const { data, error } = await supabase
-        .from('historico_fiado')
+        .from('historico_fiados')
         .select('*')
-        .eq('id_cliente', fiadoId)
+        .eq('cliente_id', fiadoId)
         .order('data', { ascending: false });
 
       if (error) {

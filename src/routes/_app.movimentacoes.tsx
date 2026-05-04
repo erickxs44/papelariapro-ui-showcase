@@ -35,6 +35,12 @@ function Movimentacoes() {
     const safeSales = Array.isArray(sales) ? sales : [];
     const safeExpenses = Array.isArray(expenses) ? expenses : [];
 
+    const parseDate = (v: unknown) => {
+      if (!v) return new Date();
+      const d = new Date(v as string);
+      return isNaN(d.getTime()) ? new Date() : d;
+    };
+
     const mSales: Movement[] = safeSales.map(s => {
       let typeVal: "entrada" | "saida" = "entrada";
       let category = "Venda";
@@ -70,7 +76,7 @@ function Movimentacoes() {
       return {
         id: s?.id || `temp-${Math.random()}`,
         type: typeVal,
-        date: new Date(s?.date || Date.now()),
+        date: parseDate(s?.date),
         description: desc,
         category: category,
         value: s?.value ?? 0
@@ -80,7 +86,7 @@ function Movimentacoes() {
     const mExps: Movement[] = safeExpenses.map((e, idx) => ({
       id: `e-${idx}`,
       type: "saida" as const,
-      date: new Date(e?.date || Date.now()),
+      date: parseDate(e?.date),
       description: (e?.desc || '').trim() || 'Despesa',
       category: "Geral",
       value: e?.value ?? 0

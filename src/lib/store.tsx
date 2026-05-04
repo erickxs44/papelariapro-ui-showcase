@@ -2,6 +2,16 @@ import { createContext, useContext, useState, ReactNode, useEffect } from "react
 import { supabase } from "./supabase";
 import { toast } from "sonner";
 
+/**
+ * Crash-proof date parser. Returns a valid Date or falls back to `now`.
+ * Prevents `Invalid Date` from propagating into .getTime(), .toISOString(), etc.
+ */
+function safeDate(input: unknown): Date {
+  if (!input) return new Date();
+  const d = new Date(input as string | number);
+  return isNaN(d.getTime()) ? new Date() : d;
+}
+
 export type Cat = "Todos" | "Escolar" | "Escritório" | "Arte" | "Informática" | "Serviço";
 
 export type Item = {
@@ -114,18 +124,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     const fetchFiados = async () => {
       try {
         const { data, error } = await supabase.from('fiados').select('*');
-        if (!error && Array.isArray(data)) {
+        if (error) {
+          // Table might not exist (404) or RLS issue — never crash
+          console.warn('Fiados fetch error (ignorado):', error.message);
+          return;
+        }
+        if (Array.isArray(data)) {
           setFiados(data.map((d: any) => ({
             id: d.id,
             name: d.nome || 'Cliente',
             phone: d.telefone || '',
             amount: d.valor ?? 0,
-            dueDate: new Date(d.data_vencimento || Date.now()),
+            dueDate: safeDate(d.data_vencimento),
             status: d.status || 'Pendente'
           })));
         }
       } catch (e) {
-        // Table might not exist — that's OK
+        // Network error or table does not exist — keep UI running
         console.warn('Tabela fiados não encontrada:', e);
       }
     };
@@ -259,22 +274,34 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     let returnId = null;
     try {
       if (tipo === "Saída") {
-        const { data: res } = await supabase.from('despesas').insert({
+        const { data: res, error } = await supabase.from('despesas').insert({
           descricao: safeDesc,
           valor,
           categoria: detalhes.categoria || 'Geral',
           data_pagamento: data.toISOString()
         }).select();
-        if (res) returnId = res[0]?.id;
+        if (!error && res) returnId = res[0]?.id;
       } else {
-        const { data: res } = await supabase.from('vendas').insert({
+        // Build insert payload — only include columns that exist in the schema
+        const vendaPayload: Record<string, unknown> = {
           valor_total: valor,
           metodo_pagamento: detalhes.metodo_pagamento || "Dinheiro",
           descricao: safeDesc,
           data_venda: data.toISOString(),
-          cliente_id: detalhes.cliente_id || null
-        }).select();
-        if (res) returnId = res[0]?.id;
+        };
+        // cliente_id may not exist in the table schema — only include if present
+        if (detalhes.cliente_id) {
+          vendaPayload.cliente_id = detalhes.cliente_id;
+        }
+
+        const { data: res, error } = await supabase.from('vendas').insert(vendaPayload).select();
+        if (error) {
+          // If .select() fails (e.g. column mismatch), retry without .select()
+          console.warn('Venda insert com .select() falhou, tentando sem:', error.message);
+          await supabase.from('vendas').insert(vendaPayload);
+        } else if (res) {
+          returnId = res[0]?.id;
+        }
       }
     } catch (e) {
       console.warn('Erro ao persistir no Supabase:', e);
@@ -413,11 +440,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const addFiado = async (fiado: any) => {
     setFiados(prev => [fiado, ...prev]);
     try {
+      const dueDate = fiado.dueDate instanceof Date && !isNaN(fiado.dueDate.getTime())
+        ? fiado.dueDate.toISOString()
+        : new Date().toISOString();
       await supabase.from('fiados').insert({
         nome: fiado.name,
         telefone: fiado.phone,
         valor: fiado.amount,
-        data_vencimento: fiado.dueDate.toISOString(),
+        data_vencimento: dueDate,
         status: fiado.status
       });
     } catch (e) {
@@ -687,19 +717,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   const getFiadoHistory = async (fiadoId: string) => {
-    // Filter from global movements (LocalStorage priority)
-    const history = sales
-      .filter(m => m.clienteId === fiadoId)
-      .map(m => ({
-        id: m.id || Math.random().toString(),
-        data: m.date,
-        descricao: m.description,
-        valor: m.value,
-        tipo: m.type === "Pagamento de Fiado" ? "Pagamento" : "Compra"
-      }))
-      .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
+    try {
+      const { data, error } = await supabase
+        .from('historico_fiado')
+        .select('*')
+        .eq('id_cliente', fiadoId)
+        .order('data', { ascending: false });
 
-    return history;
+      if (error) {
+        console.warn('Erro ao buscar histórico do fiado:', error.message);
+        return [];
+      }
+      
+      return data || [];
+    } catch (e) {
+      console.warn('Erro na requisição do histórico do fiado:', e);
+      return [];
+    }
   };
 
   return (

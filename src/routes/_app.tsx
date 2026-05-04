@@ -65,7 +65,14 @@ function AppLayout() {
         setStatus("authenticated");
         clearInterval(t);
       }, 800);
-      return () => { clearInterval(t); clearTimeout(timer); };
+
+      // SAFETY: Hard timeout — never freeze on splash screen for more than 3s
+      const safetyTimer = setTimeout(() => {
+        setStatus((prev) => prev === "checking" ? "authenticated" : prev);
+        clearInterval(t);
+      }, 3000);
+
+      return () => { clearInterval(t); clearTimeout(timer); clearTimeout(safetyTimer); };
     } else {
       // Not logged in — redirect immediately via hard navigation
       // Using window.location prevents React unmounting crashes

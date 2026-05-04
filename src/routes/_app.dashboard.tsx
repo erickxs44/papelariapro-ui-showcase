@@ -69,9 +69,16 @@ function Dashboard() {
   const recentMovements = useMemo(() => {
     const safeSales = Array.isArray(sales) ? sales : [];
     const safeExpenses = Array.isArray(expenses) ? expenses : [];
+
+    const parseDate = (v: unknown) => {
+      if (!v) return new Date();
+      const d = new Date(v as string);
+      return isNaN(d.getTime()) ? new Date() : d;
+    };
+
     const mvs = [
-      ...safeSales.map(s => ({ type: "venda" as const, title: (s?.description || '').trim() || "Venda realizada", value: s?.value ?? 0, date: new Date(s?.date || Date.now()) })),
-      ...safeExpenses.map(e => ({ type: "despesa" as const, title: (e?.desc || '').trim() || "Despesa", value: e?.value ?? 0, date: new Date(e?.date || Date.now()) }))
+      ...safeSales.map(s => ({ type: "venda" as const, title: (s?.description || '').trim() || "Venda realizada", value: s?.value ?? 0, date: parseDate(s?.date) })),
+      ...safeExpenses.map(e => ({ type: "despesa" as const, title: (e?.desc || '').trim() || "Despesa", value: e?.value ?? 0, date: parseDate(e?.date) }))
     ].sort((a, b) => b.date.getTime() - a.date.getTime()).slice(0, 10);
     return mvs;
   }, [sales, expenses]);

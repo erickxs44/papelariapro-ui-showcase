@@ -284,7 +284,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           categoria: detalhes.categoria || 'Geral',
           data_pagamento: data.toISOString()
         }).select();
-        if (!error && res) returnId = res[0]?.id;
+        if (!error && res && res.length > 0) {
+          returnId = res[0]?.id;
+          setExpenses(prev => prev.map(e => e.id === tempId ? { ...e, id: returnId } : e));
+        }
       } else {
         // Build insert payload — only include columns that exist in the schema
         const vendaPayload: Record<string, unknown> = {
@@ -303,8 +306,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           // If .select() fails (e.g. column mismatch), retry without .select()
           console.warn('Venda insert com .select() falhou, tentando sem:', error.message);
           await supabase.from('vendas').insert(vendaPayload);
-        } else if (res) {
+        } else if (res && res.length > 0) {
           returnId = res[0]?.id;
+          setSales(prev => {
+            const next = prev.map(s => s.id === tempId ? { ...s, id: returnId } : s);
+            try { localStorage.setItem('papelaria_movements', JSON.stringify(next)); } catch {}
+            return next;
+          });
         }
       }
     } catch (e) {
@@ -463,8 +471,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
               quantidade: cartItem.qty,
               preco_unitario: cartItem.price
             });
+            
+            // Deduct stock from Supabase DB
+            const itemInState = items.find(i => i.id === cartItem.id);
+            if (itemInState) {
+              const newQty = Math.max(0, itemInState.qty - cartItem.qty);
+              await supabase.from('produtos').update({ estoque_atual: newQty }).eq('id', cartItem.id);
+            }
           } catch (e) {
-            console.warn('Erro ao inserir item_venda:', e);
+            console.warn('Erro ao inserir item_venda e atualizar estoque:', e);
           }
         }
       }

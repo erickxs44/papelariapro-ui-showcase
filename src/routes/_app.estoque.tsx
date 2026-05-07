@@ -153,7 +153,7 @@ function Estoque() {
         const item = items.find(i => i.id === discountItemId);
         if (item) {
           const totalValue = item.price * qtyNum;
-          await addStockSale(item.name, totalValue);
+          await addStockSale(item.name, totalValue, discountItemId, qtyNum);
         }
       }
       

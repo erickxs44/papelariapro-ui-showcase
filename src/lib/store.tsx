@@ -55,7 +55,7 @@ type StoreContextType = {
   discountStock: (itemId: string, qtyToDiscount: number) => Promise<void>;
   reporEstoque: (itemId: string, newCost: number, newPrice: number, addQty: number) => Promise<void>;
   estornarMovimentacao: (id: string, isDespesa: boolean) => Promise<void>;
-  addStockSale: (itemName: string, value: number) => Promise<void>;
+  addStockSale: (itemName: string, value: number, itemId?: string, qty?: number) => Promise<void>;
   getFiadoHistory: (fiadoId: string) => Promise<any[]>;
   registrarMovimentacao: (
     data: Date,
@@ -380,7 +380,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setFiados(prev => prev.map(f => f.id === fiadoId ? { ...f, amount: newAmount, status: newAmount > 0 ? "Em Atraso" : "Pendente" } : f));
         try {
           await supabase.from('fiados').update({ valor: newAmount, status: newAmount > 0 ? "Em Atraso" : "Pendente" }).eq('id', fiadoId);
-          await supabase.from('historico_fiados').insert({
+          await supabase.from('historico_fiado').insert({
             cliente_id: fiadoId,
             descricao: `Compra PDV (Parte Fiado): ${cart.map(i => i.name).join(', ')}`,
             valor: dividedData.fiado,
@@ -398,7 +398,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setFiados(prev => prev.map(f => f.id === fiadoId ? { ...f, amount: newAmount, status: newAmount > 0 ? "Em Atraso" : "Pendente" } : f));
         try {
           await supabase.from('fiados').update({ valor: newAmount, status: newAmount > 0 ? "Em Atraso" : "Pendente" }).eq('id', fiadoId);
-          await supabase.from('historico_fiados').insert({
+          await supabase.from('historico_fiado').insert({
             cliente_id: fiadoId,
             descricao: `Compra PDV: ${cart.map(i => i.name).join(', ')}`,
             valor: total,
@@ -549,7 +549,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
              setFiados(prev => prev.map(f => f.id === fiadoId ? { ...f, amount: newAmount, status: newStatus } : f));
              await supabase.from('fiados').update({ valor: newAmount, status: newStatus }).eq('id', fiadoId);
              
-             await supabase.from('historico_fiados').insert({
+             await supabase.from('historico_fiado').insert({
                cliente_id: fiadoId,
                descricao: `Estorno de Venda`,
                valor: amount,
@@ -587,8 +587,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     await registrarMovimentacao(new Date(), safeDesc, value, "Venda", { metodo_pagamento: 'Dinheiro' });
   };
 
-  const addStockSale = async (itemName: string, value: number) => {
-    await registrarMovimentacao(new Date(), `Estoque: ${itemName}`, value, "Venda", { metodo_pagamento: `Estoque: ${itemName}` });
+  const addStockSale = async (itemName: string, value: number, itemId?: string, qty?: number) => {
+    const vendaId = await registrarMovimentacao(new Date(), `Estoque: ${itemName}`, value, "Venda", { metodo_pagamento: `Estoque: ${itemName}` });
+    
+    // Inserir em itens_venda para que o estorno consiga devolver o estoque
+    if (vendaId && itemId && qty) {
+      try {
+        const item = items.find(i => i.id === itemId);
+        await supabase.from('itens_venda').insert({
+          venda_id: vendaId,
+          produto_id: itemId,
+          quantidade: qty,
+          preco_unitario: item?.price ?? (value / qty)
+        });
+      } catch (e) {
+        console.warn('Erro ao inserir item_venda para venda de estoque:', e);
+      }
+    }
   };
 
   const addFiado = async (fiado: any) => {
@@ -843,7 +858,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setFiados(prev => prev.map(f => f.id === fiadoId ? { ...f, amount: newAmount, status: newStatus } : f));
     try {
       await supabase.from('fiados').update({ valor: newAmount, status: newStatus }).eq('id', fiadoId);
-      await supabase.from('historico_fiados').insert({
+      await supabase.from('historico_fiado').insert({
         cliente_id: fiadoId,
         descricao: `Compra: ${desc}`,
         valor: amount,
@@ -866,7 +881,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     setFiados(prev => prev.map(f => f.id === fiadoId ? { ...f, amount: newAmount, status: newStatus } : f));
     try {
       await supabase.from('fiados').update({ valor: newAmount, status: newStatus }).eq('id', fiadoId);
-      await supabase.from('historico_fiados').insert({
+      await supabase.from('historico_fiado').insert({
         cliente_id: fiadoId,
         descricao: `Pagamento Realizado`,
         valor: amount,
@@ -883,7 +898,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const getFiadoHistory = async (fiadoId: string) => {
     try {
       const { data, error } = await supabase
-        .from('historico_fiados')
+        .from('historico_fiado')
         .select('*')
         .eq('cliente_id', fiadoId)
         .order('data', { ascending: false });

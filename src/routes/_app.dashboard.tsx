@@ -39,7 +39,9 @@ export const Route = createFileRoute("/_app/dashboard")({
 
 function Dashboard() {
   const { sales, expenses, closeCashier, items, fiados } = useStore();
-  const [period, setPeriod] = useState<"Hoje" | "7D" | "30D" | "3M" | "6M" | "1Y" | "Tudo">("Hoje");
+  const [period, setPeriod] = useState<"Hoje" | "7D" | "30D" | "3M" | "6M" | "1Y" | "Tudo" | "Custom">("Hoje");
+  const [customDays, setCustomDays] = useState<number | null>(null);
+  const [customText, setCustomText] = useState("");
   const [showReportMenu, setShowReportMenu] = useState(false);
   const [dbTopProducts, setDbTopProducts] = useState<any[]>([]);
   
@@ -66,6 +68,28 @@ function Dashboard() {
     fetchTopProducts();
   }, [items]);
 
+  const handleCustomFilter = (text: string) => {
+    setCustomText(text);
+    if (!text.trim()) {
+      if (period === "Custom") setPeriod("Hoje");
+      return;
+    }
+    const t = text.toLowerCase();
+    let days = 0;
+    const mesMatch = t.match(/(\d+)\s*m[eê]s(?:es)?/);
+    const diaMatch = t.match(/(\d+)\s*dia(?:s)?/);
+    const anoMatch = t.match(/(\d+)\s*ano(?:s)?/);
+    
+    if (mesMatch) days += parseInt(mesMatch[1], 10) * 30;
+    if (diaMatch) days += parseInt(diaMatch[1], 10);
+    if (anoMatch) days += parseInt(anoMatch[1], 10) * 365;
+    
+    if (days > 0) {
+      setCustomDays(days);
+      setPeriod("Custom");
+    }
+  };
+
   const recentMovements = useMemo(() => {
     const safeSales = Array.isArray(sales) ? sales : [];
     const safeExpenses = Array.isArray(expenses) ? expenses : [];
@@ -86,7 +110,10 @@ function Dashboard() {
   const startDate = useMemo(() => {
     const now = new Date();
     const start = new Date(now);
-    if (period === "Hoje") {
+    if (period === "Custom" && customDays) {
+      start.setDate(now.getDate() - customDays);
+      start.setHours(0,0,0,0);
+    } else if (period === "Hoje") {
       start.setHours(0,0,0,0);
     } else if (period === "7D") {
       start.setDate(now.getDate() - 7);
@@ -117,8 +144,14 @@ function Dashboard() {
   const lucroReal = salesTotal - expensesTotal;
   
   const dividaClientes = useMemo(() => {
-    return (Array.isArray(fiados) ? fiados : []).reduce((acc, f) => acc + (f?.amount ?? 0), 0);
-  }, [fiados]);
+    if (period === "Tudo") {
+       return (Array.isArray(fiados) ? fiados : []).reduce((acc, f) => acc + (f?.amount ?? 0), 0);
+    }
+    const fiadosNoPeriodo = (Array.isArray(sales) ? sales : []).filter(s => new Date(s?.date || 0) >= startDate);
+    const novasDividas = fiadosNoPeriodo.filter(s => s.type === "Venda Fiada").reduce((acc, s) => acc + s.value, 0);
+    const pagamentos = fiadosNoPeriodo.filter(s => s.type === "Pagamento de Fiado").reduce((acc, s) => acc + s.value, 0);
+    return Math.max(0, novasDividas - pagamentos);
+  }, [fiados, sales, startDate, period]);
 
   const chartData = useMemo(() => {
     const sGroups: Record<string, number> = {};
@@ -128,6 +161,7 @@ function Dashboard() {
       const d = new Date(date);
       if (period === "Hoje") return d.getHours() + "h";
       if (period === "7D") return d.toLocaleDateString("pt-BR", { weekday: 'short' });
+      if (period === "Custom" || period === "30D") return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
       if (period === "30D") return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
       if (["3M", "6M", "1Y", "Tudo"].includes(period)) {
         return d.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
@@ -147,7 +181,15 @@ function Dashboard() {
 
     const data = [];
     const now = new Date();
-    if (period === "Hoje") {
+    if (period === "Custom" && customDays) {
+      const step = Math.max(1, Math.floor(customDays / 10));
+      for (let i = customDays; i >= 0; i -= step) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - i);
+        const k = d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+        data.push({ day: k, value: sGroups[k] || 0, expense: eGroups[k] || 0 });
+      }
+    } else if (period === "Hoje") {
       for (let i = 8; i <= 20; i++) {
         const k = i + "h";
         data.push({ day: k, value: sGroups[k] || 0, expense: eGroups[k] || 0 });
@@ -371,6 +413,15 @@ function Dashboard() {
               >
                 Tudo
               </button>
+              <div className="shrink-0 relative ml-2">
+                <input 
+                  type="text" 
+                  value={customText}
+                  onChange={e => handleCustomFilter(e.target.value)}
+                  placeholder="Ex: 1 mês e 17 dias" 
+                  className={`w-36 rounded-lg border border-border/50 bg-background/40 px-3 py-1.5 text-xs outline-none transition focus:border-aqua/50 focus:ring-1 focus:ring-aqua/20 ${period === "Custom" ? "text-aqua" : "text-muted-foreground hover:text-foreground"}`}
+                />
+              </div>
             </div>
           </div>
           

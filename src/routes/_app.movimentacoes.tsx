@@ -110,14 +110,18 @@ function Movimentacoes() {
   }, [movements, search, filter]);
 
   const handleEstornar = async (m: Movement) => {
-    if (!window.confirm(`Tem certeza que deseja estornar: ${m.description}?`)) return;
+    const confirm1 = window.confirm('Deseja remover esta movimentação?');
+    if (!confirm1) return;
+    
+    const confirm2 = window.confirm('Você tem certeza absoluta? Esta ação é irreversível.');
+    if (!confirm2) return;
     
     // Se for uma despesa genérica, tratamos como despesa. Caso contrário, como venda.
     const isDespesa = m.category === "Geral" && m.type === "saida";
     const typeArgs = isDespesa ? "despesa" : "venda";
 
     try {
-      await estornarMovimentacao(m.id, typeArgs);
+      await estornarMovimentacao(m.id, typeArgs === "despesa");
       toast.success("Movimentação estornada com sucesso.");
     } catch (e: any) {
       toast.error(e.message || "Erro ao estornar movimentação.");

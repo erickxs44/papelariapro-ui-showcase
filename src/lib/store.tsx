@@ -577,18 +577,28 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   const addFiado = async (fiado: any) => {
-    setFiados(prev => [fiado, ...prev]);
+    const tempId = crypto.randomUUID();
+    const newFiado = { ...fiado, id: tempId };
+    setFiados(prev => [newFiado, ...prev]);
+    
     try {
       const dueDate = fiado.dueDate instanceof Date && !isNaN(fiado.dueDate.getTime())
         ? fiado.dueDate.toISOString()
         : new Date().toISOString();
-      await supabase.from('fiados').insert({
+        
+      const { data, error } = await supabase.from('fiados').insert({
         nome: fiado.name,
         telefone: fiado.phone,
         valor: fiado.amount,
         data_vencimento: dueDate,
         status: fiado.status
-      });
+      }).select();
+      
+      if (data && data.length > 0) {
+        setFiados(prev => prev.map(f => f.id === tempId ? { ...f, id: data[0].id } : f));
+      } else if (error) {
+        console.warn('Erro ao salvar fiado, DB error:', error.message);
+      }
     } catch (e) {
       console.warn('Erro ao salvar fiado:', e);
     }

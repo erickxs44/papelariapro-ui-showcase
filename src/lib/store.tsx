@@ -126,7 +126,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     const fetchFiados = async () => {
       try {
-        const { data, error } = await supabase.from('clientes_fiado').select('*');
+        const { data, error } = await supabase.from('fiados').select('*');
         if (error) {
           console.error('Fiados fetch error:', error.message);
           return;
@@ -134,15 +134,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         if (Array.isArray(data)) {
           setFiados(data.map((d: any) => ({
             id: d.id,
-            name: d.nome || 'Cliente',
+            name: d.nome_cliente || 'Cliente',
             phone: d.telefone || '',
             amount: d.saldo_devedor ?? 0,
-            dueDate: safeDate(d.data_vencimento),
-            status: d.status || 'Pendente'
+            dueDate: safeDate(d.created_at), // fallback since data_vencimento doesn't exist
+            status: (d.saldo_devedor ?? 0) > 0 ? 'Em Atraso' : 'Pendente' // calculated status
           })));
         }
       } catch (e) {
-        console.error('Tabela clientes_fiado não encontrada:', e);
+        console.error('Tabela fiados não encontrada:', e);
       }
     };
 
@@ -377,7 +377,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const newAmount = (fiado.amount ?? 0) + dividedData.fiado;
         setFiados(prev => prev.map(f => f.id === fiadoId ? { ...f, amount: newAmount, status: newAmount > 0 ? "Em Atraso" : "Pendente" } : f));
         try {
-          const resUpdate = await supabase.from('clientes_fiado').update({ saldo_devedor: newAmount, status: newAmount > 0 ? "Em Atraso" : "Pendente" }).eq('id', fiadoId);
+          const resUpdate = await supabase.from('fiados').update({ saldo_devedor: newAmount }).eq('id', fiadoId);
           if (resUpdate.error) console.error('Erro update checkout fiado', resUpdate.error);
           const resInsert = await supabase.from('historico_fiados').insert({
             cliente_id: fiadoId,
@@ -397,7 +397,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const newAmount = (fiado.amount ?? 0) + total;
         setFiados(prev => prev.map(f => f.id === fiadoId ? { ...f, amount: newAmount, status: newAmount > 0 ? "Em Atraso" : "Pendente" } : f));
         try {
-          const resUpdate = await supabase.from('clientes_fiado').update({ saldo_devedor: newAmount, status: newAmount > 0 ? "Em Atraso" : "Pendente" }).eq('id', fiadoId);
+          const resUpdate = await supabase.from('fiados').update({ saldo_devedor: newAmount }).eq('id', fiadoId);
           if (resUpdate.error) console.error('Erro update checkout fiado', resUpdate.error);
           const resInsert = await supabase.from('historico_fiados').insert({
             cliente_id: fiadoId,
@@ -548,8 +548,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
              const newAmount = Math.max(0, (fiado.amount ?? 0) - amount);
              const newStatus = newAmount > 0 ? "Em Atraso" : "Pendente";
              setFiados(prev => prev.map(f => f.id === fiadoId ? { ...f, amount: newAmount, status: newStatus } : f));
-             const resUpdate = await supabase.from('clientes_fiado').update({ saldo_devedor: newAmount, status: newStatus }).eq('id', fiadoId);
-             if (resUpdate.error) console.error("Erro no update clientes_fiado estorno", resUpdate.error);
+             const resUpdate = await supabase.from('fiados').update({ saldo_devedor: newAmount }).eq('id', fiadoId);
+             if (resUpdate.error) console.error("Erro no update fiados estorno", resUpdate.error);
              
              const resInsert = await supabase.from('historico_fiados').insert({
                cliente_id: fiadoId,
@@ -619,16 +619,15 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ? fiado.dueDate.toISOString()
         : new Date().toISOString();
         
-      const { data, error } = await supabase.from('clientes_fiado').insert({
-        nome: fiado.name,
+      const { data, error } = await supabase.from('fiados').insert({
+        nome_cliente: fiado.name,
         telefone: fiado.phone,
-        saldo_devedor: fiado.amount,
-        data_vencimento: dueDate,
-        status: fiado.status
+        saldo_devedor: fiado.amount
       }).select();
       
       if (data && data.length > 0) {
-        setFiados(prev => prev.map(f => f.id === tempId ? { ...f, id: data[0].id } : f));
+        const realId = data[0].id;
+        setFiados(prev => prev.map(f => f.id === tempId ? { ...f, id: realId } : f));
       } else if (error) {
         console.error('Erro ao salvar fiado, DB error:', error);
       }
@@ -853,57 +852,76 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   };
 
   const addFiadoTransaction = async (fiadoId: string, amount: number, desc: string) => {
+    // Resolve the real Supabase ID — if fiadoId is still a temp UUID,
+    // look it up in the fiados array (which may have been updated by addFiado)
     const fiado = fiados.find(f => f.id === fiadoId);
     if (!fiado) return;
+    
+    // Use the fiado's current ID from state (which should be the real DB ID)
+    const resolvedId = fiado.id;
     const newAmount = (fiado.amount ?? 0) + amount;
     const newStatus = newAmount > 0 ? "Em Atraso" : "Pendente";
 
-    setFiados(prev => prev.map(f => f.id === fiadoId ? { ...f, amount: newAmount, status: newStatus } : f));
+    setFiados(prev => prev.map(f => f.id === resolvedId ? { ...f, amount: newAmount, status: newStatus } : f));
     try {
-      const resUpdate = await supabase.from('clientes_fiado').update({ saldo_devedor: newAmount, status: newStatus }).eq('id', fiadoId);
-      if (resUpdate.error) console.error("Erro no update clientes_fiado transacao", resUpdate.error);
+      const resUpdate = await supabase.from('fiados').update({ saldo_devedor: newAmount }).eq('id', resolvedId);
+      if (resUpdate.error) console.error("Erro no update fiados transacao", resUpdate.error);
+      
       const resInsert = await supabase.from('historico_fiados').insert({
-        cliente_id: fiadoId,
+        cliente_id: resolvedId,
         descricao: `Compra: ${desc}`,
         valor: amount,
         tipo: 'compra',
         data: new Date().toISOString()
       });
-      if (resInsert.error) console.error("Erro no insert historico_fiados transacao", resInsert.error);
+      if (resInsert.error) {
+        console.error("Erro no insert historico_fiados transacao", resInsert.error);
+        toast.error("Erro ao registrar no histórico do fiado.");
+      }
     } catch (e) {
       console.warn('Erro ao registrar transação fiado:', e);
+      toast.error("Erro ao registrar transação fiado.");
     }
 
-    await registrarMovimentacao(new Date(), desc, amount, "Venda Fiada", { metodo_pagamento: `Fiado: ${desc}`, cliente_id: fiadoId });
+    await registrarMovimentacao(new Date(), desc, amount, "Venda Fiada", { metodo_pagamento: `Fiado: ${desc}`, cliente_id: resolvedId });
   };
 
   const payFiado = async (fiadoId: string, amount: number) => {
     const fiado = fiados.find(f => f.id === fiadoId);
     if (!fiado) return;
+    
+    // Use the fiado's current ID from state (which should be the real DB ID)
+    const resolvedId = fiado.id;
     const newAmount = Math.max(0, (fiado.amount ?? 0) - amount);
-    const newStatus = newAmount > 0 ? "Pendente" : "Pendente";
+    const newStatus = newAmount > 0 ? "Em Atraso" : "Pendente";
 
-    setFiados(prev => prev.map(f => f.id === fiadoId ? { ...f, amount: newAmount, status: newStatus } : f));
+    setFiados(prev => prev.map(f => f.id === resolvedId ? { ...f, amount: newAmount, status: newStatus } : f));
     try {
-      const resUpdate = await supabase.from('clientes_fiado').update({ saldo_devedor: newAmount, status: newStatus }).eq('id', fiadoId);
-      if (resUpdate.error) console.error("Erro no update clientes_fiado pagamento", resUpdate.error);
+      const resUpdate = await supabase.from('fiados').update({ saldo_devedor: newAmount }).eq('id', resolvedId);
+      if (resUpdate.error) console.error("Erro no update fiados pagamento", resUpdate.error);
+      
       const resInsert = await supabase.from('historico_fiados').insert({
-        cliente_id: fiadoId,
+        cliente_id: resolvedId,
         descricao: `Pagamento Realizado`,
         valor: amount,
         tipo: 'pagamento',
         data: new Date().toISOString()
       });
-      if (resInsert.error) console.error("Erro no insert historico_fiados pagamento", resInsert.error);
+      if (resInsert.error) {
+        console.error("Erro no insert historico_fiados pagamento", resInsert.error);
+        toast.error("Erro ao registrar pagamento no histórico.");
+      }
     } catch (e) {
       console.warn('Erro ao registrar pagamento fiado:', e);
+      toast.error("Erro ao registrar pagamento fiado.");
     }
 
-    await registrarMovimentacao(new Date(), `Pagamento Realizado`, amount, "Pagamento de Fiado", { metodo_pagamento: `Baixa Fiado: ${fiado.name}`, cliente_id: fiadoId });
+    await registrarMovimentacao(new Date(), `Pagamento Realizado`, amount, "Pagamento de Fiado", { metodo_pagamento: `Baixa Fiado: ${fiado.name}`, cliente_id: resolvedId });
   };
 
   const getFiadoHistory = async (fiadoId: string) => {
     try {
+      console.log('[getFiadoHistory] Buscando histórico para cliente_id:', fiadoId);
       const { data, error } = await supabase
         .from('historico_fiados')
         .select('*')
@@ -911,13 +929,29 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         .order('data', { ascending: false });
 
       if (error) {
-        console.error('Erro ao buscar histórico do fiado:', error);
+        console.error('[getFiadoHistory] Erro na tabela historico_fiados:', error);
+        
+        // Fallback: tentar tabela com nome no singular (historico_fiado)
+        console.log('[getFiadoHistory] Tentando tabela alternativa historico_fiado...');
+        const fallback = await supabase
+          .from('historico_fiado')
+          .select('*')
+          .eq('cliente_id', fiadoId)
+          .order('data', { ascending: false });
+        
+        if (!fallback.error && fallback.data) {
+          console.log('[getFiadoHistory] Fallback bem-sucedido, encontrados:', fallback.data.length, 'registros');
+          return fallback.data;
+        }
+        
+        console.error('[getFiadoHistory] Ambas tabelas falharam:', fallback.error);
         return [];
       }
       
+      console.log('[getFiadoHistory] Encontrados:', (data || []).length, 'registros');
       return data || [];
     } catch (e) {
-      console.warn('Erro na requisição do histórico do fiado:', e);
+      console.warn('[getFiadoHistory] Erro na requisição do histórico do fiado:', e);
       return [];
     }
   };

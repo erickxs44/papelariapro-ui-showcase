@@ -7,7 +7,6 @@ import {
   Filter, 
   ArrowLeftRight,
   Clock,
-  Clock,
   Tag,
   DollarSign,
   Trash2

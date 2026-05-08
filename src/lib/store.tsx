@@ -126,10 +126,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     const fetchFiados = async () => {
       try {
-        const { data, error } = await supabase.from('fiados').select('*');
+        const { data, error } = await supabase.from('clientes_fiado').select('*');
         if (error) {
-          // Table might not exist (404) or RLS issue — never crash
-          console.warn('Fiados fetch error (ignorado):', error.message);
+          console.error('Fiados fetch error:', error.message);
           return;
         }
         if (Array.isArray(data)) {
@@ -137,14 +136,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
             id: d.id,
             name: d.nome || 'Cliente',
             phone: d.telefone || '',
-            amount: d.valor ?? 0,
+            amount: d.saldo_devedor ?? 0,
             dueDate: safeDate(d.data_vencimento),
             status: d.status || 'Pendente'
           })));
         }
       } catch (e) {
-        // Network error or table does not exist — keep UI running
-        console.warn('Tabela fiados não encontrada:', e);
+        console.error('Tabela clientes_fiado não encontrada:', e);
       }
     };
 
@@ -379,14 +377,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const newAmount = (fiado.amount ?? 0) + dividedData.fiado;
         setFiados(prev => prev.map(f => f.id === fiadoId ? { ...f, amount: newAmount, status: newAmount > 0 ? "Em Atraso" : "Pendente" } : f));
         try {
-          await supabase.from('fiados').update({ valor: newAmount, status: newAmount > 0 ? "Em Atraso" : "Pendente" }).eq('id', fiadoId);
-          await supabase.from('historico_fiado').insert({
+          const resUpdate = await supabase.from('clientes_fiado').update({ saldo_devedor: newAmount, status: newAmount > 0 ? "Em Atraso" : "Pendente" }).eq('id', fiadoId);
+          if (resUpdate.error) console.error('Erro update checkout fiado', resUpdate.error);
+          const resInsert = await supabase.from('historico_fiados').insert({
             cliente_id: fiadoId,
             descricao: `Compra PDV (Parte Fiado): ${cart.map(i => i.name).join(', ')}`,
             valor: dividedData.fiado,
             tipo: 'compra',
             data: new Date().toISOString()
           });
+          if (resInsert.error) console.error('Erro insert historico checkout fiado', resInsert.error);
         } catch (e) {
           console.warn('Erro ao atualizar fiado no checkout dividido:', e);
         }
@@ -397,8 +397,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         const newAmount = (fiado.amount ?? 0) + total;
         setFiados(prev => prev.map(f => f.id === fiadoId ? { ...f, amount: newAmount, status: newAmount > 0 ? "Em Atraso" : "Pendente" } : f));
         try {
-          await supabase.from('fiados').update({ valor: newAmount, status: newAmount > 0 ? "Em Atraso" : "Pendente" }).eq('id', fiadoId);
-          await supabase.from('historico_fiado').insert({
+          const resUpdate = await supabase.from('clientes_fiado').update({ saldo_devedor: newAmount, status: newAmount > 0 ? "Em Atraso" : "Pendente" }).eq('id', fiadoId);
+          if (resUpdate.error) console.error('Erro update checkout fiado', resUpdate.error);
+          const resInsert = await supabase.from('historico_fiados').insert({
             cliente_id: fiadoId,
             descricao: `Compra PDV: ${cart.map(i => i.name).join(', ')}`,
             valor: total,
@@ -520,10 +521,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (isDespesa) {
         await supabase.from('despesas').delete().eq('id', id);
         setExpenses(prev => prev.filter(e => e.id !== id));
+        toast.success("Movimentação removida com sucesso!");
       } else {
         const move = sales.find(s => s.id === id);
         
-        // Devolve o estoque
+        // Devolve o estoque no estado local (o banco será atualizado via Trigger)
         const { data: itensVenda } = await supabase.from('itens_venda').select('*').eq('venda_id', id);
         if (itensVenda && itensVenda.length > 0) {
           for (const iv of itensVenda) {
@@ -533,7 +535,6 @@ export function StoreProvider({ children }: { children: ReactNode }) {
              if (item) {
                const newQty = item.qty + qtyToReturn;
                setItems(prev => prev.map(i => i.id === prodId ? { ...i, qty: newQty, level: calculateLevel(newQty) } : i));
-               await supabase.from('produtos').update({ estoque_atual: newQty }).eq('id', prodId);
              }
           }
         }
@@ -547,15 +548,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
              const newAmount = Math.max(0, (fiado.amount ?? 0) - amount);
              const newStatus = newAmount > 0 ? "Em Atraso" : "Pendente";
              setFiados(prev => prev.map(f => f.id === fiadoId ? { ...f, amount: newAmount, status: newStatus } : f));
-             await supabase.from('fiados').update({ valor: newAmount, status: newStatus }).eq('id', fiadoId);
+             const resUpdate = await supabase.from('clientes_fiado').update({ saldo_devedor: newAmount, status: newStatus }).eq('id', fiadoId);
+             if (resUpdate.error) console.error("Erro no update clientes_fiado estorno", resUpdate.error);
              
-             await supabase.from('historico_fiado').insert({
+             const resInsert = await supabase.from('historico_fiados').insert({
                cliente_id: fiadoId,
                descricao: `Estorno de Venda`,
                valor: amount,
                tipo: 'pagamento', // Funciona como pagamento abatendo a dívida
                data: new Date().toISOString()
              });
+             if (resInsert.error) console.error("Erro no insert historico_fiados estorno", resInsert.error);
            }
         }
 
@@ -565,8 +568,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           try { localStorage.setItem('papelaria_movements', JSON.stringify(next)); } catch {}
           return next;
         });
+        toast.success("Movimentação removida e estoque atualizado com sucesso!");
       }
-      toast.success("Movimentação estornada com sucesso!");
     } catch(e) {
       console.warn("Erro ao estornar movimentacao", e);
       toast.error("Erro ao estornar movimentação.");
@@ -616,10 +619,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ? fiado.dueDate.toISOString()
         : new Date().toISOString();
         
-      const { data, error } = await supabase.from('fiados').insert({
+      const { data, error } = await supabase.from('clientes_fiado').insert({
         nome: fiado.name,
         telefone: fiado.phone,
-        valor: fiado.amount,
+        saldo_devedor: fiado.amount,
         data_vencimento: dueDate,
         status: fiado.status
       }).select();
@@ -627,10 +630,10 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       if (data && data.length > 0) {
         setFiados(prev => prev.map(f => f.id === tempId ? { ...f, id: data[0].id } : f));
       } else if (error) {
-        console.warn('Erro ao salvar fiado, DB error:', error.message);
+        console.error('Erro ao salvar fiado, DB error:', error);
       }
     } catch (e) {
-      console.warn('Erro ao salvar fiado:', e);
+      console.error('Erro ao salvar fiado:', e);
     }
   };
 
@@ -857,14 +860,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     setFiados(prev => prev.map(f => f.id === fiadoId ? { ...f, amount: newAmount, status: newStatus } : f));
     try {
-      await supabase.from('fiados').update({ valor: newAmount, status: newStatus }).eq('id', fiadoId);
-      await supabase.from('historico_fiado').insert({
+      const resUpdate = await supabase.from('clientes_fiado').update({ saldo_devedor: newAmount, status: newStatus }).eq('id', fiadoId);
+      if (resUpdate.error) console.error("Erro no update clientes_fiado transacao", resUpdate.error);
+      const resInsert = await supabase.from('historico_fiados').insert({
         cliente_id: fiadoId,
         descricao: `Compra: ${desc}`,
         valor: amount,
         tipo: 'compra',
         data: new Date().toISOString()
       });
+      if (resInsert.error) console.error("Erro no insert historico_fiados transacao", resInsert.error);
     } catch (e) {
       console.warn('Erro ao registrar transação fiado:', e);
     }
@@ -880,14 +885,16 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
     setFiados(prev => prev.map(f => f.id === fiadoId ? { ...f, amount: newAmount, status: newStatus } : f));
     try {
-      await supabase.from('fiados').update({ valor: newAmount, status: newStatus }).eq('id', fiadoId);
-      await supabase.from('historico_fiado').insert({
+      const resUpdate = await supabase.from('clientes_fiado').update({ saldo_devedor: newAmount, status: newStatus }).eq('id', fiadoId);
+      if (resUpdate.error) console.error("Erro no update clientes_fiado pagamento", resUpdate.error);
+      const resInsert = await supabase.from('historico_fiados').insert({
         cliente_id: fiadoId,
         descricao: `Pagamento Realizado`,
         valor: amount,
         tipo: 'pagamento',
         data: new Date().toISOString()
       });
+      if (resInsert.error) console.error("Erro no insert historico_fiados pagamento", resInsert.error);
     } catch (e) {
       console.warn('Erro ao registrar pagamento fiado:', e);
     }
@@ -898,13 +905,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const getFiadoHistory = async (fiadoId: string) => {
     try {
       const { data, error } = await supabase
-        .from('historico_fiado')
+        .from('historico_fiados')
         .select('*')
         .eq('cliente_id', fiadoId)
         .order('data', { ascending: false });
 
       if (error) {
-        console.warn('Erro ao buscar histórico do fiado:', error.message);
+        console.error('Erro ao buscar histórico do fiado:', error);
         return [];
       }
       

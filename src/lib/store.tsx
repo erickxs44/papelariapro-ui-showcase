@@ -36,7 +36,7 @@ export type Movement = {
 type StoreContextType = {
   items: Item[];
   addStock: (item: Item) => void;
-  checkout: (cart: { id?: string; name: string; qty: number; price: number }[], paymentMethod?: string, fiadoId?: string) => Promise<void>;
+  checkout: (cart: { id?: string; name: string; qty: number; price: number }[], paymentMethod?: string, fiadoId?: string, dividedData?: { aVista: number; fiado: number; aVistaMethod: string }, discountPercentage?: number) => Promise<void>;
   xeroxCount: number;
   addExpense: (desc: string, value: number) => Promise<void>;
   addQuickSale: (desc: string, value: number) => Promise<void>;
@@ -365,9 +365,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     cart: { id?: string; name: string; qty: number; price: number }[], 
     paymentMethod: string = "Dinheiro", 
     fiadoId?: string,
-    dividedData?: { aVista: number; fiado: number; aVistaMethod: string }
+    dividedData?: { aVista: number; fiado: number; aVistaMethod: string },
+    discountPercentage: number = 0
   ) => {
-    const total = cart.reduce((s, i) => s + (i.price ?? 0) * (i.qty ?? 0), 0);
+    const subtotal = cart.reduce((s, i) => s + (i.price ?? 0) * (i.qty ?? 0), 0);
+    const discountValue = (subtotal * discountPercentage) / 100;
+    const total = subtotal - discountValue;
 
     // Tratamento para pagamento dividido
     if (paymentMethod === "Dividido" && dividedData && fiadoId) {

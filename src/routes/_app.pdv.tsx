@@ -41,6 +41,8 @@ function Pdv() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [q, setQ] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"Dinheiro" | "Cartão" | "Pix" | "Fiado" | "Dividido">("Dinheiro");
+  const [showDiscountInput, setShowDiscountInput] = useState(false);
+  const [discountPercentage, setDiscountPercentage] = useState("");
 
   const [isFiadoModalOpen, setIsFiadoModalOpen] = useState(false);
   const [selectedFiadoClient, setSelectedFiadoClient] = useState("");
@@ -110,6 +112,9 @@ function Pdv() {
   const remove = (name: string) => setCart((c) => c.filter((i) => i.name !== name));
 
   const subtotal = cart.reduce((s, i) => s + i.price * i.qty, 0);
+  const discountPct = parseFloat(discountPercentage) || 0;
+  const discountValue = (subtotal * discountPct) / 100;
+  const totalToPay = subtotal - discountValue;
 
   const handleCheckout = async () => {
     if (cart.length === 0) return;
@@ -118,7 +123,7 @@ function Pdv() {
       return;
     }
     if (paymentMethod === "Dividido") {
-      setDivididoVistaValue((subtotal / 2).toFixed(2).replace('.', ','));
+      setDivididoVistaValue((totalToPay / 2).toFixed(2).replace('.', ','));
       setIsDivididoModalOpen(true);
       return;
     }
@@ -128,8 +133,10 @@ function Pdv() {
   const processCheckout = async (method: string, fiadoId?: string, dividedData?: any) => {
     setIsSubmitting(true);
     try {
-      await checkout(cart, method, fiadoId, dividedData);
+      await checkout(cart, method, fiadoId, dividedData, discountPct);
       setCart([]);
+      setDiscountPercentage("");
+      setShowDiscountInput(false);
       if (fiadoId && method === "Fiado PDV") setIsFiadoModalOpen(false);
       if (method === "Dividido") setIsDivididoModalOpen(false);
       toast.success('Venda realizada com sucesso!');
@@ -352,9 +359,46 @@ function Pdv() {
         </ul>
 
         <div className="mt-auto pt-3 border-t border-border/60">
-          <div className="flex items-end justify-between mb-3">
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Total</span>
-            <span className="text-xl font-extrabold text-electric">R$ {subtotal.toFixed(2)}</span>
+          <div className="flex flex-col gap-1 mb-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">Subtotal</span>
+              <span className="text-sm font-semibold">R$ {subtotal.toFixed(2)}</span>
+            </div>
+            
+            {showDiscountInput ? (
+              <div className="flex items-center justify-between gap-2 mt-1 mb-1">
+                <span className="text-xs text-muted-foreground whitespace-nowrap">Desconto (%)</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={discountPercentage}
+                  onChange={(e) => setDiscountPercentage(e.target.value)}
+                  placeholder="Aplicar % do desconto"
+                  autoFocus
+                  className="w-full text-right rounded-lg border border-electric/30 bg-surface/50 p-1.5 text-xs focus:border-electric focus:outline-none focus:ring-1 focus:ring-electric transition-all"
+                />
+              </div>
+            ) : (
+              <button 
+                onClick={() => setShowDiscountInput(true)}
+                className="text-[10px] font-bold text-aqua text-left hover:underline mb-1 w-fit uppercase"
+              >
+                + Adicionar Desconto
+              </button>
+            )}
+
+            {discountValue > 0 && (
+              <div className="flex items-center justify-between text-aqua">
+                <span className="text-xs font-semibold">Desconto ({discountPct}%)</span>
+                <span className="text-sm font-semibold">- R$ {discountValue.toFixed(2)}</span>
+              </div>
+            )}
+
+            <div className="flex items-end justify-between mt-1 pt-2 border-t border-border/40">
+              <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">Total a Pagar</span>
+              <span className="text-xl font-extrabold text-electric">R$ {totalToPay.toFixed(2)}</span>
+            </div>
           </div>
 
           <div className="space-y-2.5">
@@ -597,7 +641,7 @@ function Pdv() {
                     <span className="text-sm font-semibold text-muted-foreground">Restante (Fiado):</span>
                     {(() => {
                       const v = parseFloat(divididoVistaValue.replace(',', '.')) || 0;
-                      const rest = subtotal - v;
+                      const rest = totalToPay - v;
                       if (rest < 0) return <span className="text-lg font-black text-destructive">Valor Inválido</span>;
                       return <span className="text-lg font-black text-aqua">R$ {rest.toFixed(2)}</span>;
                     })()}
@@ -621,10 +665,10 @@ function Pdv() {
                     whileTap={divididoFiadoClient ? { scale: 0.95 } : {}}
                     onClick={() => {
                       const aVista = parseFloat(divididoVistaValue.replace(',', '.')) || 0;
-                      const rest = subtotal - aVista;
+                      const rest = totalToPay - aVista;
                       processCheckout("Dividido", divididoFiadoClient, { aVista, fiado: rest, aVistaMethod: divididoVistaMethod });
                     }}
-                    disabled={!divididoFiadoClient || (subtotal - (parseFloat(divididoVistaValue.replace(',', '.')) || 0)) <= 0 || isSubmitting}
+                    disabled={!divididoFiadoClient || (totalToPay - (parseFloat(divididoVistaValue.replace(',', '.')) || 0)) <= 0 || isSubmitting}
                     className="rounded-2xl bg-electric px-6 py-3 font-bold text-white shadow-lg shadow-electric/30 transition hover:bg-electric/90 w-full disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
                   >
                     {isSubmitting ? (

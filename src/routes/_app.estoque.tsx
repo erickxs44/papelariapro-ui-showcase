@@ -43,40 +43,75 @@ function Estoque() {
   const [restockPrice, setRestockPrice] = useState("");
   const [restockQty, setRestockQty] = useState("");
 
+  // States for financial confirmation modals
+  const [isFinancialConfirmOpen, setIsFinancialConfirmOpen] = useState(false);
+  // 'new' = confirming for new product, 'restock' = confirming for restock
+  const [financialConfirmContext, setFinancialConfirmContext] = useState<'new' | 'restock' | null>(null);
+
+  // Staged data waiting for financial confirmation
+  const [stagedNewProduct, setStagedNewProduct] = useState<{
+    item: any;
+    parsedCost: number;
+    qtyNum: number;
+  } | null>(null);
+  const [stagedRestock, setStagedRestock] = useState<{
+    itemId: string;
+    parsedCost: number;
+    parsedPrice: number;
+    qtyNum: number;
+    itemName: string;
+  } | null>(null);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const filtered = items.filter(
     (i) => (cat === "Todos" || i.cat === cat) && i.name.toLowerCase().includes(q.toLowerCase()),
   );
 
-  const handleAdd = async (e: React.FormEvent) => {
+  const handleAdd = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName || !newPrice || !newQty || !newCostPrice) return;
+
+    const qtyNum = parseInt(newQty, 10);
+    const parsedCost = parseFloat(newCostPrice.replace(",", "."));
+    const item = {
+      name: newName,
+      cat: "Escolar",
+      costPrice: parsedCost,
+      price: parseFloat(newPrice.replace(",", ".")),
+      qty: qtyNum,
+      level: calculateLevel(qtyNum),
+    };
+
+    // Stage the data and open financial confirmation modal
+    setStagedNewProduct({ item, parsedCost, qtyNum });
+    setFinancialConfirmContext('new');
+    setIsFinancialConfirmOpen(true);
+  };
+
+  const finalizeNewProduct = async (sendToFinancial: boolean) => {
+    if (!stagedNewProduct) return;
     setIsSubmitting(true);
     try {
-      const qtyNum = parseInt(newQty, 10);
-      const parsedCost = parseFloat(newCostPrice.replace(",", "."));
-      const item = {
-        name: newName,
-        cat: "Escolar",
-        costPrice: parsedCost,
-        price: parseFloat(newPrice.replace(",", ".")),
-        qty: qtyNum,
-        level: calculateLevel(qtyNum)
-      };
+      const { item, parsedCost, qtyNum } = stagedNewProduct;
       await addStock(item as any);
-      
-      const totalCost = parsedCost * qtyNum;
-      if (totalCost > 0) {
-        await registrarMovimentacao(new Date(), `Estoque: ${newName}`, totalCost, "Saída", { categoria: "Estoque" });
+
+      if (sendToFinancial) {
+        const totalCost = parsedCost * qtyNum;
+        if (totalCost > 0) {
+          await registrarMovimentacao(new Date(), `Estoque: ${item.name}`, totalCost, "Saída", { categoria: "Estoque" });
+        }
       }
 
+      setIsFinancialConfirmOpen(false);
       setIsModalOpen(false);
+      setStagedNewProduct(null);
+      setFinancialConfirmContext(null);
       setNewName("");
       setNewCostPrice("");
       setNewPrice("");
       setNewQty("");
-      toast.success("Produto cadastrado e despesa registrada!");
+      toast.success(sendToFinancial ? "Produto cadastrado e despesa registrada!" : "Produto cadastrado no estoque!");
     } catch (e) {
       console.warn("Erro ao adicionar produto:", e);
       toast.error("Erro ao cadastrar produto.");
@@ -110,26 +145,63 @@ function Estoque() {
     setIsRestockModalOpen(true);
   };
 
-  const handleRestock = async (e: React.FormEvent) => {
+  const handleRestock = (e: React.FormEvent) => {
     e.preventDefault();
     if (!restockItemId || !restockQty || !restockCost || !restockPrice) return;
-    
+
+    const qtyNum = parseInt(restockQty, 10);
+    const parsedCost = parseFloat(restockCost.replace(",", "."));
+    const parsedPrice = parseFloat(restockPrice.replace(",", "."));
+
+    // Stage the data and open financial confirmation modal
+    setStagedRestock({ itemId: restockItemId, parsedCost, parsedPrice, qtyNum, itemName: restockItemName });
+    setFinancialConfirmContext('restock');
+    setIsFinancialConfirmOpen(true);
+  };
+
+  const finalizeRestock = async (sendToFinancial: boolean) => {
+    if (!stagedRestock) return;
     setIsSubmitting(true);
     try {
-      const qtyNum = parseInt(restockQty, 10);
-      const parsedCost = parseFloat(restockCost.replace(",", "."));
-      const parsedPrice = parseFloat(restockPrice.replace(",", "."));
-      
-      await reporEstoque(restockItemId, parsedCost, parsedPrice, qtyNum);
-      
+      const { itemId, parsedCost, parsedPrice, qtyNum, itemName } = stagedRestock;
+      await reporEstoque(itemId, parsedCost, parsedPrice, qtyNum);
+
+      if (sendToFinancial) {
+        const totalCost = parsedCost * qtyNum;
+        if (totalCost > 0) {
+          await registrarMovimentacao(new Date(), `Reposição: ${itemName}`, totalCost, "Saída", { categoria: "Estoque" });
+        }
+      }
+
+      setIsFinancialConfirmOpen(false);
       setIsRestockModalOpen(false);
-      toast.success(`${qtyNum} unidades repostas com sucesso!`);
+      setStagedRestock(null);
+      setFinancialConfirmContext(null);
+      toast.success(sendToFinancial
+        ? `${qtyNum} unidades repostas e despesa registrada!`
+        : `${qtyNum} unidades repostas com sucesso!`);
     } catch (e) {
       console.warn("Erro ao repor estoque:", e);
       toast.error("Erro ao repor estoque.");
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleFinancialConfirm = (sendToFinancial: boolean) => {
+    if (financialConfirmContext === 'new') {
+      finalizeNewProduct(sendToFinancial);
+    } else if (financialConfirmContext === 'restock') {
+      finalizeRestock(sendToFinancial);
+    }
+  };
+
+  const closeFinancialConfirm = () => {
+    if (isSubmitting) return;
+    setIsFinancialConfirmOpen(false);
+    setStagedNewProduct(null);
+    setStagedRestock(null);
+    setFinancialConfirmContext(null);
   };
 
   const handleDiscount = (e: React.FormEvent) => {
@@ -461,6 +533,50 @@ function Estoque() {
                 )}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Financial Confirmation Modal */}
+      {isFinancialConfirmOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-background/80 backdrop-blur-sm px-4">
+          <div className="w-full max-w-sm rounded-3xl border border-border/60 bg-surface p-7 shadow-2xl glass-card">
+            {/* Icon */}
+            <div className="flex justify-center mb-5">
+              <div className="h-14 w-14 rounded-2xl bg-amber-400/15 border border-amber-400/30 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+
+            <p className="text-center text-base font-semibold text-foreground leading-snug mb-7">
+              Você deseja passar o valor desses produtos para a dashboard de movimentações?
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleFinancialConfirm(false)}
+                disabled={isSubmitting}
+                className="flex-1 rounded-xl border border-border/60 bg-elevated py-3 text-sm font-bold hover:bg-elevated/80 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Não
+              </button>
+              <button
+                onClick={() => handleFinancialConfirm(true)}
+                disabled={isSubmitting}
+                className="flex-1 rounded-xl bg-electric/20 text-electric border border-electric/40 py-3 text-sm font-bold hover:bg-electric/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {isSubmitting ? (
+                  <>
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-electric/30 border-t-electric" />
+                    Processando...
+                  </>
+                ) : (
+                  "Sim"
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

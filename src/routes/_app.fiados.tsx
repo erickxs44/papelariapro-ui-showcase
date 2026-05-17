@@ -41,6 +41,7 @@ function Fiados() {
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [fiadoToDelete, setFiadoToDelete] = useState<any | null>(null);
+  const [deleteStep, setDeleteStep] = useState<1 | 2>(1);
 
   const handleDeleteFiado = async () => {
     if (!fiadoToDelete) return;
@@ -234,6 +235,7 @@ function Fiados() {
                           return;
                         }
                         setFiadoToDelete(fiado);
+                        setDeleteStep(1);
                         setIsDeleteModalOpen(true);
                       }}
                       className="flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-colors"
@@ -596,46 +598,85 @@ function Fiados() {
                 <Trash2 className="h-8 w-8" />
               </div>
               
-              <div className="text-center mb-8">
-                <h2 className="text-2xl font-bold mb-2">Excluir Cliente?</h2>
-                <p className="text-muted-foreground text-sm mb-4">
-                  Tem certeza que deseja excluir <span className="text-white font-bold">{fiadoToDelete.name}</span>?
-                </p>
-                <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-3 text-left">
-                  <p className="text-xs text-destructive flex items-start gap-2">
-                    <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-                    As movimentações e o histórico de faturamento serão preservados no caixa, mas o cliente será removido desta lista permanentemente.
-                  </p>
-                </div>
-              </div>
+              {deleteStep === 1 ? (
+                <>
+                  <div className="text-center mb-8">
+                    <h2 className="text-2xl font-bold mb-2">Remover Cliente</h2>
+                    <p className="text-muted-foreground text-sm mb-4">
+                      Você deseja remover o cliente fiado <span className="text-white font-bold">{fiadoToDelete.name}</span>?
+                    </p>
+                    <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-3 text-left">
+                      <p className="text-xs text-destructive flex items-start gap-2">
+                        <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                        As movimentações e o histórico de faturamento serão preservados no caixa, mas o cliente será removido desta lista permanentemente.
+                      </p>
+                    </div>
+                  </div>
 
-              <div className="flex gap-3">
-                <motion.button 
-                  type="button"
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setIsDeleteModalOpen(false)}
-                  className="flex-1 rounded-2xl border border-white/10 bg-transparent py-3.5 text-sm font-bold transition hover:bg-white/5"
-                >
-                  Cancelar
-                </motion.button>
-                <motion.button 
-                  onClick={handleDeleteFiado}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.95 }}
-                  disabled={isSubmitting}
-                  className="flex-1 rounded-2xl bg-destructive py-3.5 text-sm font-bold text-white shadow-[0_0_20px_rgba(239,68,68,0.5)] transition hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                      Aguarde...
-                    </>
-                  ) : (
-                    "Sim, Excluir"
-                  )}
-                </motion.button>
-              </div>
+                  <div className="flex gap-3">
+                    <motion.button 
+                      type="button"
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setIsDeleteModalOpen(false)}
+                      className="flex-1 rounded-2xl border border-white/10 bg-transparent py-3.5 text-sm font-bold transition hover:bg-white/5"
+                    >
+                      Não
+                    </motion.button>
+                    <motion.button 
+                      onClick={() => setDeleteStep(2)}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.95 }}
+                      className="flex-1 rounded-2xl bg-destructive py-3.5 text-sm font-bold text-white shadow-[0_0_20px_rgba(239,68,68,0.5)] transition hover:bg-destructive/90 flex justify-center items-center gap-2"
+                    >
+                      Sim
+                    </motion.button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="text-center mb-8">
+                    <h2 className="text-2xl font-bold mb-2">Confirmar Exclusão</h2>
+                    <p className="text-muted-foreground text-sm mb-4">
+                      Você tem certeza?
+                    </p>
+                    <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-3 text-left">
+                      <p className="text-xs text-destructive flex items-start gap-2">
+                        <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                        Atenção: esta ação de exclusão do cliente é permanente.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <motion.button 
+                      type="button"
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => setIsDeleteModalOpen(false)}
+                      className="flex-1 rounded-2xl border border-white/10 bg-transparent py-3.5 text-sm font-bold transition hover:bg-white/5"
+                    >
+                      Não
+                    </motion.button>
+                    <motion.button 
+                      onClick={handleDeleteFiado}
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.95 }}
+                      disabled={isSubmitting}
+                      className="flex-1 rounded-2xl bg-destructive py-3.5 text-sm font-bold text-white shadow-[0_0_20px_rgba(239,68,68,0.5)] transition hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                          Aguarde...
+                        </>
+                      ) : (
+                        "Sim"
+                      )}
+                    </motion.button>
+                  </div>
+                </>
+              )}
             </motion.div>
           </motion.div>
         )}

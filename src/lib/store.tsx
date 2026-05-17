@@ -52,6 +52,7 @@ type StoreContextType = {
   addFiadoTransaction: (fiadoId: string, amount: number, desc: string) => Promise<void>;
   payFiado: (fiadoId: string, amount: number) => Promise<void>;
   deleteFiado: (fiadoId: string) => Promise<void>;
+  deleteProduct: (productId: string) => Promise<void>;
   addService: (service: any) => void;
   discountStock: (itemId: string, qtyToDiscount: number) => Promise<void>;
   reporEstoque: (itemId: string, newCost: number, newPrice: number, addQty: number) => Promise<void>;
@@ -274,7 +275,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
 
     // 2. Persistência Atômica no Banco (wrapped in try/catch)
-    let returnId = null;
+    let returnId: string | undefined = undefined;
     try {
       if (tipo === "Saída") {
         const { data: res, error } = await supabase.from('despesas').insert({
@@ -318,7 +319,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       console.warn('Erro ao persistir no Supabase:', e);
       // State was already updated optimistically, so the UI still works
     }
-    return returnId;
+    return returnId ?? null;
   };
 
   const addStock = async (item: Item) => {
@@ -516,11 +517,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       console.warn('Erro ao atualizar estoque:', e);
     }
 
-    // Register Expense
-    const expenseTotal = newCost * addQty;
-    if (expenseTotal > 0) {
-      await registrarMovimentacao(new Date(), `Reposição de Estoque: ${item.name} (${addQty}x)`, expenseTotal, "Saída", { categoria: 'Estoque' });
-    }
+    // NOTE: Expense registration is now controlled by the Estoque page's
+    // financial confirmation modal ("Mandar valor para Dashboard?").
+    // Previously this function ALSO registered the expense, causing duplicates.
   };
 
   const estornarMovimentacao = async (id: string, isDespesa: boolean) => {
@@ -862,34 +861,78 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const deleteFiado = async (fiadoId: string) => {
     try {
-      // 1. Desvincular de historico_fiados (para não perder o histórico contábil nem dar erro de FK)
-      const { error: histError } = await supabase
-        .from('historico_fiados')
-        .update({ cliente_id: null })
-        .eq('cliente_id', fiadoId);
-        
-      if (histError) console.warn("Aviso ao desvincular histórico:", histError);
+      const fiado = fiados.find(f => f.id === fiadoId);
+      if (!fiado) throw new Error('Cliente não encontrado');
 
-      // 2. Desvincular de vendas (caso existam vendas vinculadas via detalhe)
-      const { error: vendasError } = await supabase
-        .from('vendas')
-        .update({ cliente_id: null })
-        .eq('cliente_id', fiadoId);
-        
-      if (vendasError) console.warn("Aviso ao desvincular vendas:", vendasError);
-
-      // 3. Deletar efetivamente o cliente da tabela de fiados
+      // SOFT-DELETE: Renomear com prefixo [EXCLUIDO] para preservar
+      // todas as movimentações financeiras (vendas, histórico de fiados)
+      // que referenciam este cliente. Nunca deletar entries financeiras.
       const { error } = await supabase
         .from('fiados')
-        .delete()
+        .update({ nome_cliente: `[EXCLUIDO] ${fiado.name}` })
         .eq('id', fiadoId);
 
       if (error) throw error;
 
-      // 4. Atualizar o estado local removendo o card da interface
+      // Remover da UI local — os dados permanecem no banco
       setFiados(prev => prev.filter(f => f.id !== fiadoId));
     } catch (error) {
-      console.error("Erro em deleteFiado:", error);
+      console.error("Erro em deleteFiado (soft-delete):", error);
+      throw error;
+    }
+  };
+
+  const deleteProduct = async (productId: string) => {
+    const product = items.find(i => i.id === productId);
+    if (!product) return;
+
+    try {
+      // 1. Buscar todas as vendas vinculadas via itens_venda
+      const { data: relatedItems } = await supabase
+        .from('itens_venda')
+        .select('venda_id')
+        .eq('produto_id', productId);
+
+      const removedVendaIds = new Set<string>();
+
+      if (relatedItems && relatedItems.length > 0) {
+        for (const iv of relatedItems) {
+          removedVendaIds.add(iv.venda_id);
+          // Delete itens_venda entries
+          await supabase.from('itens_venda').delete().eq('venda_id', iv.venda_id);
+          // Delete the venda itself (reverses financial impact)
+          await supabase.from('vendas').delete().eq('id', iv.venda_id);
+        }
+      }
+
+      // 2. Delete related despesas (stock reposition expenses)
+      const { data: relatedExpenses } = await supabase
+        .from('despesas')
+        .select('id')
+        .ilike('descricao', `%${product.name}%`);
+
+      const removedExpenseIds = new Set<string>();
+      if (relatedExpenses && relatedExpenses.length > 0) {
+        for (const exp of relatedExpenses) {
+          removedExpenseIds.add(exp.id);
+          await supabase.from('despesas').delete().eq('id', exp.id);
+        }
+      }
+
+      // 3. Delete the product itself
+      const { error } = await supabase.from('produtos').delete().eq('id', productId);
+      if (error) throw error;
+
+      // 4. Update all local state to reflect the reversal
+      setItems(prev => prev.filter(i => i.id !== productId));
+      setSales(prev => {
+        const next = prev.filter(s => !removedVendaIds.has(s.id || ''));
+        try { localStorage.setItem('papelaria_movements', JSON.stringify(next)); } catch {}
+        return next;
+      });
+      setExpenses(prev => prev.filter(e => !removedExpenseIds.has(e.id || '')));
+    } catch (error) {
+      console.error("Erro em deleteProduct:", error);
       throw error;
     }
   };
@@ -1004,8 +1047,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       items, addStock, checkout, xeroxCount, addExpense, addQuickSale, 
       expenses, sales, fiados, services, quickProducts, listasEscolares,
       closeCashier, resetData, addFiado, addService, discountStock,
-      addFiadoTransaction, payFiado, addStockSale, getFiadoHistory, registrarMovimentacao,
-      reporEstoque, estornarMovimentacao
+      addFiadoTransaction, payFiado, deleteFiado, addStockSale, getFiadoHistory, registrarMovimentacao,
+      reporEstoque, estornarMovimentacao, deleteProduct
     }}>
       {children}
     </StoreContext.Provider>
@@ -1037,6 +1080,7 @@ export function useStore() {
       addFiado: noop,
       addFiadoTransaction: noop,
       payFiado: noop,
+      deleteFiado: noop,
       addService: () => {},
       discountStock: noop,
       addStockSale: noop,
@@ -1044,6 +1088,7 @@ export function useStore() {
       registrarMovimentacao: async () => null,
       reporEstoque: async () => {},
       estornarMovimentacao: async () => {},
+      deleteProduct: noop,
     } as StoreContextType;
   }
   return ctx;

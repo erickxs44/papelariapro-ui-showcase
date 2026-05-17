@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Search, Plus, Filter, X, Minus } from "lucide-react";
+import { Search, Plus, Filter, X, Minus, Trash2 } from "lucide-react";
 import { useStore, Cat, calculateLevel } from "../lib/store";
 import { toast } from "sonner";
 
@@ -17,7 +17,7 @@ const tone: Record<string, string> = {
 };
 
 function Estoque() {
-  const { items, addStock, registrarMovimentacao, reporEstoque, discountStock, addStockSale } = useStore();
+  const { items, addStock, registrarMovimentacao, reporEstoque, discountStock, addStockSale, deleteProduct } = useStore();
   const [cat, setCat] = useState<Cat | "Todos">("Todos");
   const [q, setQ] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -61,6 +61,11 @@ function Estoque() {
     qtyNum: number;
     itemName: string;
   } | null>(null);
+
+  // States for product deletion modal (double confirm)
+  const [isDeleteProductModalOpen, setIsDeleteProductModalOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [deleteProductStep, setDeleteProductStep] = useState<1 | 2>(1);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -204,6 +209,32 @@ function Estoque() {
     setFinancialConfirmContext(null);
   };
 
+  const openDeleteProductModal = (id: string, name: string) => {
+    if (!id) {
+      toast.error("Produto não possui ID no banco ainda.");
+      return;
+    }
+    setProductToDelete({ id, name });
+    setDeleteProductStep(1);
+    setIsDeleteProductModalOpen(true);
+  };
+
+  const handleDeleteProduct = async () => {
+    if (!productToDelete) return;
+    setIsSubmitting(true);
+    try {
+      await deleteProduct(productToDelete.id);
+      toast.success(`Produto "${productToDelete.name}" excluído e impacto financeiro revertido!`);
+      setIsDeleteProductModalOpen(false);
+      setProductToDelete(null);
+    } catch (e) {
+      console.warn("Erro ao excluir produto:", e);
+      toast.error("Erro ao excluir produto. Verifique sua conexão.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const handleDiscount = (e: React.FormEvent) => {
     e.preventDefault();
     if (!discountItemId || !discountQty) return;
@@ -321,6 +352,13 @@ function Estoque() {
                     >
                       <Minus className="w-5 h-5" />
                     </button>
+                    <button 
+                      onClick={() => openDeleteProductModal(i.id as string, i.name)}
+                      className="inline-flex items-center justify-center p-3 bg-red-900/20 text-red-400 rounded-xl hover:bg-red-900/40 transition-colors"
+                      title="Excluir Produto (Lixeira)"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -377,6 +415,13 @@ function Estoque() {
                   title="Descontar Produto"
                 >
                   <Minus className="w-4 h-4" />
+                </button>
+                <button 
+                  onClick={() => openDeleteProductModal(i.id as string, i.name)}
+                  className="inline-flex items-center justify-center p-2 bg-red-900/20 text-red-400 rounded-lg hover:bg-red-900/40 transition-colors active:scale-95"
+                  title="Excluir Produto"
+                >
+                  <Trash2 className="w-4 h-4" />
                 </button>
               </div>
             </div>
@@ -577,6 +622,99 @@ function Estoque() {
                 )}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Product Modal (Double Confirm) */}
+      {isDeleteProductModalOpen && productToDelete && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-background/80 backdrop-blur-sm px-4">
+          <div className="w-full max-w-md rounded-3xl border border-destructive/20 bg-surface p-8 shadow-2xl glass-card">
+            <button 
+              onClick={() => setIsDeleteProductModalOpen(false)}
+              disabled={isSubmitting}
+              className="absolute right-4 top-4 rounded-full p-2 text-muted-foreground hover:bg-white/10 hover:text-white transition"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            
+            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-destructive/20 text-destructive mx-auto">
+              <Trash2 className="h-8 w-8" />
+            </div>
+            
+            {deleteProductStep === 1 ? (
+              <>
+                <div className="text-center mb-8">
+                  <h2 className="text-2xl font-bold mb-2">Excluir Produto</h2>
+                  <p className="text-muted-foreground text-sm mb-4">
+                    Deseja excluir o produto <span className="text-white font-bold">{productToDelete.name}</span>?
+                  </p>
+                  <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-3 text-left">
+                    <p className="text-xs text-destructive flex items-start gap-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      Atenção: Todas as vendas, despesas de reposição e registros financeiros vinculados a este produto serão revertidos e removidos do Dashboard.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => setIsDeleteProductModalOpen(false)}
+                    className="flex-1 rounded-2xl border border-white/10 bg-transparent py-3.5 text-sm font-bold transition hover:bg-white/5"
+                  >
+                    Não
+                  </button>
+                  <button 
+                    onClick={() => setDeleteProductStep(2)}
+                    className="flex-1 rounded-2xl bg-destructive py-3.5 text-sm font-bold text-white shadow-[0_0_20px_rgba(239,68,68,0.5)] transition hover:bg-destructive/90"
+                  >
+                    Sim
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-center mb-8">
+                  <h2 className="text-2xl font-bold mb-2">Confirmar Exclusão</h2>
+                  <p className="text-muted-foreground text-sm mb-4">
+                    Você tem certeza absoluta? Esta ação é irreversível.
+                  </p>
+                  <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-3 text-left">
+                    <p className="text-xs text-destructive flex items-start gap-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      O produto e todo o seu impacto financeiro serão permanentemente removidos do sistema.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => setIsDeleteProductModalOpen(false)}
+                    className="flex-1 rounded-2xl border border-white/10 bg-transparent py-3.5 text-sm font-bold transition hover:bg-white/5"
+                  >
+                    Não
+                  </button>
+                  <button 
+                    onClick={handleDeleteProduct}
+                    disabled={isSubmitting}
+                    className="flex-1 rounded-2xl bg-destructive py-3.5 text-sm font-bold text-white shadow-[0_0_20px_rgba(239,68,68,0.5)] transition hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                        Aguarde...
+                      </>
+                    ) : (
+                      "Confirmar Exclusão"
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

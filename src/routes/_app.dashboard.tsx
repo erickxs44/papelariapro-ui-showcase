@@ -162,7 +162,7 @@ function Dashboard() {
       if (period === "Hoje") return d.getHours() + "h";
       if (period === "7D") return d.toLocaleDateString("pt-BR", { weekday: 'short' });
       if (period === "Custom" || period === "30D") return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
-      if (period === "30D") return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+
       if (["3M", "6M", "1Y", "Tudo"].includes(period)) {
         return d.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" });
       }

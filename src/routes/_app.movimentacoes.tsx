@@ -9,7 +9,8 @@ import {
   Clock,
   Tag,
   DollarSign,
-  Trash2
+  Trash2,
+  X
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useStore } from "../lib/store";
@@ -33,6 +34,12 @@ function Movimentacoes() {
   const { items, sales, expenses, estornarMovimentacao } = useStore();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"Todas" | "Entradas" | "Saídas">("Todas");
+
+  // States for estorno modal (replacing window.confirm)
+  const [isEstornoModalOpen, setIsEstornoModalOpen] = useState(false);
+  const [movementToEstorno, setMovementToEstorno] = useState<Movement | null>(null);
+  const [estornoStep, setEstornoStep] = useState<1 | 2>(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const movements = useMemo(() => {
     const safeSales = Array.isArray(sales) ? sales : [];
     const safeExpenses = Array.isArray(expenses) ? expenses : [];
@@ -108,22 +115,30 @@ function Movimentacoes() {
     });
   }, [movements, search, filter]);
 
-  const handleEstornar = async (m: Movement) => {
-    const confirm1 = window.confirm('Deseja remover esta movimentação?');
-    if (!confirm1) return;
-    
-    const confirm2 = window.confirm('Você tem certeza absoluta? Esta ação é irreversível.');
-    if (!confirm2) return;
+  const openEstornoModal = (m: Movement) => {
+    setMovementToEstorno(m);
+    setEstornoStep(1);
+    setIsEstornoModalOpen(true);
+  };
+
+  const handleEstornar = async () => {
+    if (!movementToEstorno) return;
+    const m = movementToEstorno;
     
     // Se for uma despesa genérica, tratamos como despesa. Caso contrário, como venda.
     const isDespesa = m.category === "Geral" && m.type === "saida";
     const typeArgs = isDespesa ? "despesa" : "venda";
 
+    setIsSubmitting(true);
     try {
       await estornarMovimentacao(m.id, typeArgs === "despesa");
       toast.success("Movimentação estornada com sucesso.");
+      setIsEstornoModalOpen(false);
+      setMovementToEstorno(null);
     } catch (e: any) {
       toast.error(e.message || "Erro ao estornar movimentação.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -223,7 +238,7 @@ function Movimentacoes() {
                        {valuePrefix}R$ {m.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                      </div>
                      <button
-                       onClick={() => handleEstornar(m)}
+                       onClick={() => openEstornoModal(m)}
                        className="p-1 rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
                        title="Estornar / Excluir"
                      >
@@ -252,6 +267,98 @@ function Movimentacoes() {
           <p className="italic">Exibindo os últimos 100 registros do banco de dados</p>
         </div>
       </div>
+
+      {/* Estorno Modal (Double Confirm) */}
+      {isEstornoModalOpen && movementToEstorno && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-background/80 backdrop-blur-sm px-4">
+          <div className="w-full max-w-md rounded-3xl border border-destructive/20 bg-surface p-8 shadow-2xl glass-card relative">
+            <button 
+              onClick={() => setIsEstornoModalOpen(false)}
+              disabled={isSubmitting}
+              className="absolute right-4 top-4 rounded-full p-2 text-muted-foreground hover:bg-white/10 hover:text-white transition"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            
+            <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-destructive/20 text-destructive mx-auto">
+              <Trash2 className="h-8 w-8" />
+            </div>
+            
+            {estornoStep === 1 ? (
+              <>
+                <div className="text-center mb-8">
+                  <h2 className="text-2xl font-bold mb-2">Estornar Movimentação</h2>
+                  <p className="text-muted-foreground text-sm mb-4">
+                    Deseja remover a movimentação <span className="text-white font-bold">"{movementToEstorno.description}"</span>?
+                  </p>
+                  <div className="bg-white/5 border border-border/30 rounded-xl p-3 text-center">
+                    <p className="text-lg font-bold">
+                      <span className={movementToEstorno.type === 'entrada' ? 'text-emerald-400' : 'text-muted-foreground'}>
+                        {movementToEstorno.type === 'entrada' ? '+' : '-'}R$ {movementToEstorno.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => setIsEstornoModalOpen(false)}
+                    className="flex-1 rounded-2xl border border-white/10 bg-transparent py-3.5 text-sm font-bold transition hover:bg-white/5"
+                  >
+                    Não
+                  </button>
+                  <button 
+                    onClick={() => setEstornoStep(2)}
+                    className="flex-1 rounded-2xl bg-destructive py-3.5 text-sm font-bold text-white shadow-[0_0_20px_rgba(239,68,68,0.5)] transition hover:bg-destructive/90"
+                  >
+                    Sim
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-center mb-8">
+                  <h2 className="text-2xl font-bold mb-2">Confirmar Estorno</h2>
+                  <p className="text-muted-foreground text-sm mb-4">
+                    Você tem certeza absoluta? Esta ação é irreversível.
+                  </p>
+                  <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-3 text-left">
+                    <p className="text-xs text-destructive flex items-start gap-2">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      O valor será revertido do Dashboard e o registro removido permanentemente.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => setIsEstornoModalOpen(false)}
+                    className="flex-1 rounded-2xl border border-white/10 bg-transparent py-3.5 text-sm font-bold transition hover:bg-white/5"
+                  >
+                    Não
+                  </button>
+                  <button 
+                    onClick={handleEstornar}
+                    disabled={isSubmitting}
+                    className="flex-1 rounded-2xl bg-destructive py-3.5 text-sm font-bold text-white shadow-[0_0_20px_rgba(239,68,68,0.5)] transition hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                        Aguarde...
+                      </>
+                    ) : (
+                      "Confirmar Estorno"
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

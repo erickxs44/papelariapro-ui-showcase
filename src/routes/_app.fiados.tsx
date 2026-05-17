@@ -230,10 +230,6 @@ function Fiados() {
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}
                       onClick={() => {
-                        if ((fiado.amount || 0) > 0) {
-                          toast.error("O cliente precisa quitar 100% da dívida antes de ser excluído.");
-                          return;
-                        }
                         setFiadoToDelete(fiado);
                         setDeleteStep(1);
                         setIsDeleteModalOpen(true);

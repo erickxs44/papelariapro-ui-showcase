@@ -51,6 +51,8 @@ function Pdv() {
   const [divididoVistaValue, setDivididoVistaValue] = useState("");
   const [divididoVistaMethod, setDivididoVistaMethod] = useState("Dinheiro");
   const [divididoFiadoClient, setDivididoFiadoClient] = useState("");
+  const [divididoClientMode, setDivididoClientMode] = useState<"existing" | "new">("existing");
+  const [newFiadoClientName, setNewFiadoClientName] = useState("");
 
   // Novo Produto/Serviço modal
   const [isNewServiceModalOpen, setIsNewServiceModalOpen] = useState(false);
@@ -137,6 +139,7 @@ function Pdv() {
       setCart([]);
       setDiscountPercentage("");
       setShowDiscountInput(false);
+      setNewFiadoClientName("");
       if (fiadoId && method === "Fiado PDV") setIsFiadoModalOpen(false);
       if (method === "Dividido") setIsDivididoModalOpen(false);
       toast.success('Venda realizada com sucesso!');
@@ -637,7 +640,7 @@ function Pdv() {
                 </div>
 
                 <div className="rounded-2xl border border-aqua/30 bg-aqua/5 p-4">
-                  <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center justify-between mb-4">
                     <span className="text-sm font-semibold text-muted-foreground">Restante (Fiado):</span>
                     {(() => {
                       const v = parseFloat(divididoVistaValue.replace(',', '.')) || 0;
@@ -646,29 +649,81 @@ function Pdv() {
                       return <span className="text-lg font-black text-aqua">R$ {rest.toFixed(2)}</span>;
                     })()}
                   </div>
-                  <label className="mb-2 block text-sm font-semibold text-muted-foreground">Selecione o Cliente</label>
-                  <select
-                    value={divididoFiadoClient}
-                    onChange={(e) => setDivididoFiadoClient(e.target.value)}
-                    className="w-full rounded-2xl border border-white/10 bg-elevated p-3 focus:border-electric focus:outline-none transition"
-                  >
-                    <option value="" disabled>Selecione um cliente...</option>
-                    {fiados?.map(f => (
-                      <option key={f.id} value={f.id}>{f.name}</option>
-                    ))}
-                  </select>
+
+                  <div className="flex gap-2 mb-4 bg-background/50 p-1 rounded-xl">
+                    <button 
+                      onClick={() => setDivididoClientMode("existing")}
+                      className={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition ${divididoClientMode === "existing" ? "bg-surface shadow text-aqua" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      Cliente Existente
+                    </button>
+                    <button 
+                      onClick={() => setDivididoClientMode("new")}
+                      className={`flex-1 rounded-lg py-1.5 text-xs font-semibold transition ${divididoClientMode === "new" ? "bg-surface shadow text-aqua" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      Novo Cliente
+                    </button>
+                  </div>
+
+                  {divididoClientMode === "existing" ? (
+                    <>
+                      <label className="mb-2 block text-sm font-semibold text-muted-foreground">Selecione o Cliente</label>
+                      <select
+                        value={divididoFiadoClient}
+                        onChange={(e) => setDivididoFiadoClient(e.target.value)}
+                        className="w-full rounded-2xl border border-white/10 bg-elevated p-3 focus:border-electric focus:outline-none transition"
+                      >
+                        <option value="" disabled>Selecione um cliente...</option>
+                        {fiados?.map(f => (
+                          <option key={f.id} value={f.id}>{f.name}</option>
+                        ))}
+                      </select>
+                    </>
+                  ) : (
+                    <>
+                      <label className="mb-2 block text-sm font-semibold text-muted-foreground">Nome do Novo Cliente</label>
+                      <input
+                        type="text"
+                        value={newFiadoClientName}
+                        onChange={(e) => setNewFiadoClientName(e.target.value)}
+                        placeholder="Digite o nome..."
+                        className="w-full rounded-2xl border border-white/10 bg-elevated p-3 focus:border-electric focus:outline-none transition"
+                      />
+                    </>
+                  )}
                 </div>
 
                 <div className="mt-6 flex justify-end">
                   <motion.button 
-                    whileHover={divididoFiadoClient ? { scale: 1.02 } : {}}
-                    whileTap={divididoFiadoClient ? { scale: 0.95 } : {}}
-                    onClick={() => {
-                      const aVista = parseFloat(divididoVistaValue.replace(',', '.')) || 0;
-                      const rest = totalToPay - aVista;
-                      processCheckout("Dividido", divididoFiadoClient, { aVista, fiado: rest, aVistaMethod: divididoVistaMethod });
+                    whileHover={(divididoClientMode === "existing" ? divididoFiadoClient : newFiadoClientName.trim()) ? { scale: 1.02 } : {}}
+                    whileTap={(divididoClientMode === "existing" ? divididoFiadoClient : newFiadoClientName.trim()) ? { scale: 0.95 } : {}}
+                    onClick={async () => {
+                      setIsSubmitting(true);
+                      try {
+                        let finalFiadoId = divididoFiadoClient;
+                        if (divididoClientMode === "new") {
+                          const sanitizedName = newFiadoClientName.trim();
+                          if (!sanitizedName) {
+                            toast.error("O nome do cliente não pode estar vazio.");
+                            setIsSubmitting(false);
+                            return;
+                          }
+                          const newId = await useStore.getState().addFiado({ name: sanitizedName, phone: '', amount: 0 });
+                          if (!newId) throw new Error("Falha de rede ao criar cliente.");
+                          finalFiadoId = newId;
+                        }
+
+                        const aVista = parseFloat(divididoVistaValue.replace(',', '.')) || 0;
+                        const rest = totalToPay - aVista;
+                        
+                        await processCheckout("Dividido", finalFiadoId, { aVista, fiado: rest, aVistaMethod: divididoVistaMethod });
+                      } catch(e) {
+                        console.error(e);
+                        toast.error("Erro transacional ao processar venda dividida.");
+                        setIsSubmitting(false);
+                      }
                     }}
-                    disabled={!divididoFiadoClient || (totalToPay - (parseFloat(divididoVistaValue.replace(',', '.')) || 0)) <= 0 || isSubmitting}
+                    disabled={(divididoClientMode === "existing" && !divididoFiadoClient) || (divididoClientMode === "new" && !newFiadoClientName.trim()) || (totalToPay - (parseFloat(divididoVistaValue.replace(',', '.')) || 0)) <= 0 || isSubmitting}
                     className="rounded-2xl bg-electric px-6 py-3 font-bold text-white shadow-lg shadow-electric/30 transition hover:bg-electric/90 w-full disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
                   >
                     {isSubmitting ? (

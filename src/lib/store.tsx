@@ -48,7 +48,7 @@ type StoreContextType = {
   listasEscolares: any[];
   closeCashier: (period: "Hoje" | "7D" | "30D") => Promise<void>;
   resetData: () => Promise<void>;
-  addFiado: (fiado: any) => Promise<void>;
+  addFiado: (fiado: any) => Promise<string | undefined>;
   addFiadoTransaction: (fiadoId: string, amount: number, desc: string) => Promise<void>;
   payFiado: (fiadoId: string, amount: number) => Promise<void>;
   addService: (service: any) => void;
@@ -612,7 +612,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const addFiado = async (fiado: any) => {
+  const addFiado = async (fiado: any): Promise<string | undefined> => {
     const tempId = crypto.randomUUID();
     const newFiado = { ...fiado, id: tempId };
     setFiados(prev => [newFiado, ...prev]);
@@ -624,19 +624,21 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         
       const { data, error } = await supabase.from('fiados').insert({
         nome_cliente: fiado.name,
-        telefone: fiado.phone,
-        saldo_devedor: fiado.amount
+        telefone: fiado.phone || '',
+        saldo_devedor: fiado.amount || 0
       }).select();
       
       if (data && data.length > 0) {
         const realId = data[0].id;
         setFiados(prev => prev.map(f => f.id === tempId ? { ...f, id: realId } : f));
+        return realId;
       } else if (error) {
         console.error('Erro ao salvar fiado, DB error:', error);
       }
     } catch (e) {
       console.error('Erro ao salvar fiado:', e);
     }
+    return tempId;
   };
 
   const addService = (service: any) => {

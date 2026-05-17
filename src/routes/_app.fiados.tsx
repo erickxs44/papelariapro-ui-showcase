@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, User, Phone, Calendar, AlertCircle, CheckCircle2, ShieldCheck, X, Plus, FileText, ArrowUpRight, ArrowDownLeft } from "lucide-react";
+import { Search, User, Phone, Calendar, AlertCircle, CheckCircle2, ShieldCheck, X, Plus, FileText, ArrowUpRight, ArrowDownLeft, Trash2 } from "lucide-react";
 import { useStore } from "../lib/store";
 import { toast } from "sonner";
 
@@ -20,7 +20,7 @@ type Fiado = {
 };
 
 function Fiados() {
-  const { fiados, addFiado, payFiado, addFiadoTransaction, getFiadoHistory } = useStore();
+  const { fiados, addFiado, payFiado, addFiadoTransaction, getFiadoHistory, deleteFiado } = useStore();
   const [search, setSearch] = useState("");
   const [selectedFiado, setSelectedFiado] = useState<any | null>(null);
   
@@ -39,9 +39,24 @@ function Fiados() {
 
   const filtered = (fiados || []).filter(f => f.name.toLowerCase().includes(search.toLowerCase()));
 
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [fiadoToDelete, setFiadoToDelete] = useState<any | null>(null);
 
-
-  const handleBaixa = async (e: React.FormEvent) => {
+  const handleDeleteFiado = async () => {
+    if (!fiadoToDelete) return;
+    setIsSubmitting(true);
+    try {
+      await deleteFiado(fiadoToDelete.id);
+      toast.success(`Cliente ${fiadoToDelete.name} excluído com sucesso!`);
+      setIsDeleteModalOpen(false);
+      setFiadoToDelete(null);
+    } catch (error) {
+      console.warn("Erro ao excluir cliente:", error);
+      toast.error("Erro ao excluir cliente. Verifique sua conexão.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };  const handleBaixa = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedFiado || !baixaValue) return;
     setIsSubmitting(true);
@@ -209,6 +224,22 @@ function Fiados() {
                       title="Adicionar Fiado"
                     >
                       <Plus className="h-4 w-4" />
+                    </motion.button>
+                    <motion.button 
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                      onClick={() => {
+                        if ((fiado.amount || 0) > 0) {
+                          toast.error("O cliente precisa quitar 100% da dívida antes de ser excluído.");
+                          return;
+                        }
+                        setFiadoToDelete(fiado);
+                        setIsDeleteModalOpen(true);
+                      }}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-colors"
+                      title="Excluir Cliente"
+                    >
+                      <Trash2 className="h-4 w-4" />
                     </motion.button>
                   </div>
                 </div>
@@ -533,6 +564,77 @@ function Fiados() {
                     ))}
                   </div>
                 )}
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Modal Excluir Cliente */}
+      <AnimatePresence>
+        {isDeleteModalOpen && fiadoToDelete && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/60 backdrop-blur-xl"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="w-full max-w-md rounded-3xl border border-destructive/20 bg-surface p-8 shadow-2xl relative glass-card"
+            >
+              <button 
+                onClick={() => setIsDeleteModalOpen(false)}
+                className="absolute right-4 top-4 rounded-full p-2 text-muted-foreground hover:bg-white/10 hover:text-white transition"
+              >
+                <X className="h-5 w-5" />
+              </button>
+              
+              <div className="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-destructive/20 text-destructive mx-auto">
+                <Trash2 className="h-8 w-8" />
+              </div>
+              
+              <div className="text-center mb-8">
+                <h2 className="text-2xl font-bold mb-2">Excluir Cliente?</h2>
+                <p className="text-muted-foreground text-sm mb-4">
+                  Tem certeza que deseja excluir <span className="text-white font-bold">{fiadoToDelete.name}</span>?
+                </p>
+                <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-3 text-left">
+                  <p className="text-xs text-destructive flex items-start gap-2">
+                    <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                    As movimentações e o histórico de faturamento serão preservados no caixa, mas o cliente será removido desta lista permanentemente.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <motion.button 
+                  type="button"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setIsDeleteModalOpen(false)}
+                  className="flex-1 rounded-2xl border border-white/10 bg-transparent py-3.5 text-sm font-bold transition hover:bg-white/5"
+                >
+                  Cancelar
+                </motion.button>
+                <motion.button 
+                  onClick={handleDeleteFiado}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.95 }}
+                  disabled={isSubmitting}
+                  className="flex-1 rounded-2xl bg-destructive py-3.5 text-sm font-bold text-white shadow-[0_0_20px_rgba(239,68,68,0.5)] transition hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                      Aguarde...
+                    </>
+                  ) : (
+                    "Sim, Excluir"
+                  )}
+                </motion.button>
               </div>
             </motion.div>
           </motion.div>

@@ -51,6 +51,7 @@ type StoreContextType = {
   addFiado: (fiado: any) => Promise<string | undefined>;
   addFiadoTransaction: (fiadoId: string, amount: number, desc: string) => Promise<void>;
   payFiado: (fiadoId: string, amount: number) => Promise<void>;
+  deleteFiado: (fiadoId: string) => Promise<void>;
   addService: (service: any) => void;
   discountStock: (itemId: string, qtyToDiscount: number) => Promise<void>;
   reporEstoque: (itemId: string, newCost: number, newPrice: number, addQty: number) => Promise<void>;
@@ -856,6 +857,40 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       console.error("Erro crítico durante o reset:", error);
       toast.error("Erro ao resetar dados.");
       // Don't re-throw — it would crash the error boundary
+    }
+  };
+
+  const deleteFiado = async (fiadoId: string) => {
+    try {
+      // 1. Desvincular de historico_fiados (para não perder o histórico contábil nem dar erro de FK)
+      const { error: histError } = await supabase
+        .from('historico_fiados')
+        .update({ cliente_id: null })
+        .eq('cliente_id', fiadoId);
+        
+      if (histError) console.warn("Aviso ao desvincular histórico:", histError);
+
+      // 2. Desvincular de vendas (caso existam vendas vinculadas via detalhe)
+      const { error: vendasError } = await supabase
+        .from('vendas')
+        .update({ cliente_id: null })
+        .eq('cliente_id', fiadoId);
+        
+      if (vendasError) console.warn("Aviso ao desvincular vendas:", vendasError);
+
+      // 3. Deletar efetivamente o cliente da tabela de fiados
+      const { error } = await supabase
+        .from('fiados')
+        .delete()
+        .eq('id', fiadoId);
+
+      if (error) throw error;
+
+      // 4. Atualizar o estado local removendo o card da interface
+      setFiados(prev => prev.filter(f => f.id !== fiadoId));
+    } catch (error) {
+      console.error("Erro em deleteFiado:", error);
+      throw error;
     }
   };
 

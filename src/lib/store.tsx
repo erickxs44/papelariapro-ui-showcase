@@ -375,43 +375,46 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     // Tratamento para pagamento dividido
     if (paymentMethod === "Dividido" && dividedData && fiadoId) {
       // 1. Fiado portion
-      const fiado = fiados.find(f => f.id === fiadoId);
-      if (fiado) {
-        const newAmount = (fiado.amount ?? 0) + dividedData.fiado;
+      try {
+        const { data: currentFiado } = await supabase.from('fiados').select('saldo_devedor').eq('id', fiadoId).single();
+        const baseAmount = currentFiado?.saldo_devedor || 0;
+        const newAmount = baseAmount + dividedData.fiado;
+
         setFiados(prev => prev.map(f => f.id === fiadoId ? { ...f, amount: newAmount, status: newAmount > 0 ? "Em Atraso" : "Pendente" } : f));
-        try {
-          const resUpdate = await supabase.from('fiados').update({ saldo_devedor: newAmount }).eq('id', fiadoId);
-          if (resUpdate.error) console.error('Erro update checkout fiado', resUpdate.error);
-          const resInsert = await supabase.from('historico_fiados').insert({
-            cliente_id: fiadoId,
-            descricao: `Compra PDV (Parte Fiado): ${cart.map(i => i.name).join(', ')}`,
-            valor: dividedData.fiado,
-            tipo: 'compra',
-            data: new Date().toISOString()
-          });
-          if (resInsert.error) console.error('Erro insert historico checkout fiado', resInsert.error);
-        } catch (e) {
-          console.warn('Erro ao atualizar fiado no checkout dividido:', e);
-        }
+
+        const resUpdate = await supabase.from('fiados').update({ saldo_devedor: newAmount }).eq('id', fiadoId);
+        if (resUpdate.error) console.error('Erro update checkout fiado', resUpdate.error);
+        const resInsert = await supabase.from('historico_fiados').insert({
+          cliente_id: fiadoId,
+          descricao: `Compra PDV (Parte Fiado): ${cart.map(i => i.name).join(', ')}`,
+          valor: dividedData.fiado,
+          tipo: 'compra',
+          data: new Date().toISOString()
+        });
+        if (resInsert.error) console.error('Erro insert historico checkout fiado', resInsert.error);
+      } catch (e) {
+        console.warn('Erro ao atualizar fiado no checkout dividido:', e);
       }
     } else if (fiadoId && paymentMethod === "Fiado PDV") {
-      const fiado = fiados.find(f => f.id === fiadoId);
-      if (fiado) {
-        const newAmount = (fiado.amount ?? 0) + total;
+      try {
+        const { data: currentFiado } = await supabase.from('fiados').select('saldo_devedor').eq('id', fiadoId).single();
+        const baseAmount = currentFiado?.saldo_devedor || 0;
+        const newAmount = baseAmount + total;
+
         setFiados(prev => prev.map(f => f.id === fiadoId ? { ...f, amount: newAmount, status: newAmount > 0 ? "Em Atraso" : "Pendente" } : f));
-        try {
-          const resUpdate = await supabase.from('fiados').update({ saldo_devedor: newAmount }).eq('id', fiadoId);
-          if (resUpdate.error) console.error('Erro update checkout fiado', resUpdate.error);
-          const resInsert = await supabase.from('historico_fiados').insert({
-            cliente_id: fiadoId,
-            descricao: `Compra PDV: ${cart.map(i => i.name).join(', ')}`,
-            valor: total,
-            tipo: 'compra',
-            data: new Date().toISOString()
-          });
-        } catch (e) {
-          console.warn('Erro ao atualizar fiado no checkout:', e);
-        }
+
+        const resUpdate = await supabase.from('fiados').update({ saldo_devedor: newAmount }).eq('id', fiadoId);
+        if (resUpdate.error) console.error('Erro update checkout fiado', resUpdate.error);
+        const resInsert = await supabase.from('historico_fiados').insert({
+          cliente_id: fiadoId,
+          descricao: `Compra PDV: ${cart.map(i => i.name).join(', ')}`,
+          valor: total,
+          tipo: 'compra',
+          data: new Date().toISOString()
+        });
+        if (resInsert.error) console.error('Erro insert historico checkout fiado', resInsert.error);
+      } catch (e) {
+        console.warn('Erro ao atualizar fiado no checkout:', e);
       }
     }
 

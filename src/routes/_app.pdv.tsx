@@ -37,7 +37,7 @@ const iconMap: Record<string, any> = {
 type CartItem = { id?: string; name: string; price: number; qty: number };
 
 function Pdv() {
-  const { items, checkout, xeroxCount, services, quickProducts, listasEscolares, addService, fiados } = useStore();
+  const { items, checkout, xeroxCount, services, quickProducts, listasEscolares, addService, fiados, addFiado } = useStore();
   const [cart, setCart] = useState<CartItem[]>([]);
   const [q, setQ] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"Dinheiro" | "Cartão" | "Pix" | "Fiado" | "Dividido">("Dinheiro");
@@ -269,21 +269,19 @@ function Pdv() {
               </div>
             )}
 
-            {quickProducts.length > 0 && (
+            {items.length > 0 && (
               <div>
-                <p className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Mais Vendidos</p>
-                <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                  {quickProducts.map((pName) => {
-                    const p = items.find(i => i.name === pName);
-                    if (!p) return null;
+                <p className="mb-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Produtos em Estoque</p>
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-4 max-h-[50vh] overflow-y-auto custom-scrollbar p-1">
+                  {items.map((p) => {
                     return (
                       <button
-                        key={p.name}
+                        key={p.id || p.name}
                         disabled={p.qty <= 0}
                         onClick={() => add(p.name, p.price, p.qty, p.id)}
                         className="rounded-2xl border border-border/60 bg-surface/70 p-3 text-left transition hover:border-electric/50 hover:bg-elevated card-inset disabled:opacity-50 disabled:cursor-not-allowed group relative flex flex-col justify-center"
                       >
-                        <p className="text-xs font-semibold truncate">{p.name}</p>
+                        <p className="text-xs font-semibold truncate" title={p.name}>{p.name}</p>
                         <p className="mt-0.5 text-xs font-bold text-aqua">R$ {p.price.toFixed(2)}</p>
                         {p.qty <= 0 && (
                           <div className="absolute inset-0 flex items-center justify-center bg-background/60 rounded-2xl backdrop-blur-[1px]">
@@ -708,7 +706,7 @@ function Pdv() {
                             setIsSubmitting(false);
                             return;
                           }
-                          const newId = await useStore.getState().addFiado({ name: sanitizedName, phone: '', amount: 0 });
+                          const newId = await addFiado({ name: sanitizedName, phone: '', amount: 0 });
                           if (!newId) throw new Error("Falha de rede ao criar cliente.");
                           finalFiadoId = newId;
                         }
